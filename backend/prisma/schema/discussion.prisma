@@ -1,0 +1,35 @@
+// Diskusi CEO ↔ employee ("Kumpulkan tim").
+
+model Discussion {
+  id             String    @id @default(uuid())
+  companyId      String
+  startedById    String
+  /// employee id peserta
+  participantIds String[]  @default([])
+  endedAt        DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  company  Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  messages DiscussionMessage[]
+
+  @@index([companyId, createdAt])
+  @@map("discussion")
+}
+
+model DiscussionMessage {
+  id           String     @id @default(uuid())
+  companyId    String
+  discussionId String
+  /// user | employee | system
+  fromType     String     @default("user")
+  fromId       String?
+  text         String     @default("") @db.Text
+  isDemo       Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+  discussion   Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+
+  @@index([discussionId, createdAt])
+  @@index([companyId, createdAt])
+  @@map("discussion_message")
+}

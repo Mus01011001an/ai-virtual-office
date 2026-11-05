@@ -1,0 +1,224 @@
+// Core system models — disalin dari boilerplate Musyan (prisma/schema/system.prisma), dipangkas ke yang dipakai.
+// Office = Company (tenant). Field & nama tabel dijaga identik dengan Musyan.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Company {
+  id                   String    @id @default(uuid())
+  name                 String    @default("")
+  code                 String?   @unique
+  email                String?
+  phone                String?
+  address              String?
+  isActive             Boolean   @default(true)
+  modules              String[]  @default([])
+  /// Aktif = login di device lain tidak me-logout sesi yang sudah ada
+  multipleLoginEnabled Boolean   @default(true)
+  createdById          String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  deletedAt            DateTime?
+
+  activityLogs    ActivityLog[]
+  roles           Role[]
+  users           User[]
+  lastActiveUsers User[]          @relation("UserLastActiveCompany")
+  members         CompanyMember[]
+  activeSessions  Session[]
+
+  // Virtual office
+  officeProfile      OfficeProfile?
+  employees          Employee[]
+  tasks              Task[]
+  employeeActivities EmployeeActivity[]
+  discussions        Discussion[]
+  aiProviders        AiProvider[]
+
+  @@map("company")
+}
+
+model User {
+  id                  String    @id @default(uuid())
+  name                String    @default("")
+  email               String?   @unique
+  phone               String?
+  address             String?
+  deletedAt           DateTime?
+  updatedAt           DateTime  @updatedAt
+  createdAt           DateTime  @default(now())
+  emailVerified       Boolean   @default(false)
+  roleId              String?
+  image               String?
+  companyId           String?
+  lastActiveCompanyId String?
+  isSuperAdmin        Boolean   @default(false)
+  /// Akun dibuat owner untuk teman → wajib ganti password saat login pertama
+  mustChangePassword  Boolean   @default(false)
+
+  accounts          Account[]
+  activityLogs      ActivityLog[]
+  assets            Assets[]
+  sessions          Session[]
+  company           Company?        @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  lastActiveCompany Company?        @relation("UserLastActiveCompany", fields: [lastActiveCompanyId], references: [id], onDelete: SetNull)
+  role              Role?           @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  memberships       CompanyMember[]
+  invitedMembers    CompanyMember[] @relation("MemberInviter")
+
+  @@map("user")
+}
+
+model Session {
+  id              String   @id @default(uuid())
+  expiresAt       DateTime
+  token           String   @unique
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  ipAddress       String?
+  userAgent       String?
+  userId          String?
+  impersonatedBy  String?
+  activeCompanyId String?
+  sessionType     String?  @default("app")
+  user            User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeCompany   Company? @relation(fields: [activeCompanyId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([userId, sessionType])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(uuid())
+  accountId             String    @default("")
+  providerId            String    @default("")
+  userId                String?
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id @default(uuid())
+  identifier String?
+  value      String?
+  expiresAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model Role {
+  id             String           @id @default(uuid())
+  name           String           @default("")
+  description    String?
+  isDefault      Boolean          @default(false)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  companyId      String?
+  company        Company?         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  permissions    RolePermission[]
+  user           User[]
+  companyMembers CompanyMember[]
+
+  @@unique([name, companyId])
+  @@map("role")
+}
+
+model RolePermission {
+  id         String   @id @default(uuid())
+  roleId     String
+  permission String
+  createdAt  DateTime @default(now())
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permission])
+  @@map("role_permission")
+}
+
+model CompanyMember {
+  id               String    @id @default(uuid())
+  companyId        String
+  userId           String
+  roleId           String?
+  invitedBy        String?
+  invitationStatus String    @default("accepted") // pending | accepted | rejected
+  isOwner          Boolean   @default(false)
+  isDefault        Boolean   @default(false)
+  isActive         Boolean   @default(true)
+  availability     String    @default("online") // online | offline | busy
+  activeAt         DateTime?
+  joinedAt         DateTime  @default(now())
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role    Role?   @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  inviter User?   @relation("MemberInviter", fields: [invitedBy], references: [id], onDelete: SetNull)
+
+  @@unique([companyId, userId])
+  @@index([userId])
+  @@index([companyId])
+  @@map("company_member")
+}
+
+model Assets {
+  id           String    @id @default(uuid())
+  bucket       String?
+  key          String?
+  originalName String?
+  mimeType     String?
+  size         Int       @default(0)
+  subjectType  String?
+  subjectId    String?
+  field        String?
+  isPrimary    Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+  userId       String?
+  user         User?     @relation(fields: [userId], references: [id])
+
+  @@index([subjectType, subjectId])
+  @@index([bucket, key])
+  @@map("assets")
+}
+
+model ActivityLog {
+  id          String   @id @default(uuid())
+  companyId   String?
+  userId      String?
+  action      String   @default("")
+  subjectType String?
+  subjectId   String?
+  description String?
+  details     Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  company     Company? @relation(fields: [companyId], references: [id])
+  user        User?    @relation(fields: [userId], references: [id])
+
+  @@index([subjectType, subjectId])
+  @@index([companyId])
+  @@map("activity_log")
+}

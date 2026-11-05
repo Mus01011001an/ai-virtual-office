@@ -1,0 +1,28 @@
+{
+  "name": "ai-virtual-office",
+  "version": "1.0.0",
+  "description": "Virtual AI Office Dev CLI",
+  "type": "module",
+  "scripts": {
+    "dev": "node dev.mjs",
+    "install:all": "npm --prefix frontend install && npm --prefix backend install",
+    "frontend:dev": "npm --prefix frontend run dev",
+    "frontend:build": "npm --prefix frontend run build",
+    "backend:dev": "npm --prefix backend run dev",
+    "backend:build": "npm --prefix backend run build",
+    "backend:start": "npm --prefix backend run start:prod",
+    "db:generate": "npm --prefix backend run db:generate",
+    "db:deploy": "npm --prefix backend run db:deploy",
+    "db:status": "npm --prefix backend run db:status",
+    "db:studio": "npm --prefix backend run db:studio",
+    "typecheck": "npm --prefix frontend run typecheck && npm --prefix backend run typecheck",
+    "typecheck:frontend": "npm --prefix frontend run typecheck",
+    "typecheck:backend": "npm --prefix backend run typecheck",
+    "git": "node dev.mjs --git",
+    "commit": "node dev.mjs --direct-push",
+    "push": "node dev.mjs --push-select"
+  },
+  "dependencies": {
+    "inquirer": "^9.3.7"
+  }
+}

@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+/* Tema "santai": hangat, membulat, ramah — senada dengan lampu kuning-hangat di kantor 3D */
+@theme {
+  --font-sans: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --color-ink: #1b1918;
+  --color-ink-2: #262321;
+  --color-ink-3: #322d2a;
+  --color-line: rgb(255 255 255 / 0.07);
+  --color-accent: #f4a259;
+  --color-accent-2: #f8b97f;
+  --color-bone: #f6f1ea;
+  --color-demo: #ffd166;
+  --color-mint: #7fd1b9;
+}
+
+html, body, #root { height: 100%; margin: 0; overflow: hidden; }
+body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; background: var(--color-ink); color: var(--color-bone); }
+
+/* Panel solid (tanpa backdrop-blur → ringan untuk GPU di atas canvas 3D) */
+.panel { background: rgb(27 25 24 / 0.93); border: 1px solid var(--color-line); border-radius: 20px; box-shadow: 0 12px 36px rgb(0 0 0 / 0.32); overflow: hidden; }
+.panel-soft { background: rgb(27 25 24 / 0.8); border: 1px solid var(--color-line); border-radius: 16px; }
+.label { font-size: 11px; font-weight: 500; color: rgb(246 241 234 / 0.5); }
+.display { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.01em; }
+
+.nametag { pointer-events: none; user-select: none; white-space: nowrap; transition: opacity 120ms linear; }
+kbd { font-family: var(--font-sans); font-size: 10.5px; font-weight: 600; padding: 1px 6px; min-width: 18px; display: inline-block; text-align: center; border-radius: 6px; background: rgb(246 241 234 / 0.1); color: var(--color-bone); }
+
+input[type=range] { accent-color: var(--color-accent); }
+::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-thumb { background: rgb(255 255 255 / 0.12); border-radius: 6px; }
+
+@keyframes rise { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
+.rise { animation: rise 200ms cubic-bezier(.2,.8,.2,1) both; }
+@keyframes floaty { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+.floaty { animation: floaty 6s ease-in-out infinite; }

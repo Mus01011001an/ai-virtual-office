@@ -1,0 +1,8 @@
+# Build context root dipakai oleh backend/Dockerfile.
+.git
+**/node_modules
+**/dist
+**/.env
+musyan-workspace-reference
+frontend/public/assets
+*.md

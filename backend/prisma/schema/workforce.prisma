@@ -1,0 +1,116 @@
+// AI employee, task, dan feed aktivitas agent. Field Employee disamakan dengan frontend/src/state/types.ts.
+
+enum EmployeeStatus {
+  IDLE
+  WORKING
+  THINKING
+  TOOL_EXECUTING
+  WAITING
+  ON_BREAK
+  IN_MEETING
+  COLLABORATING
+  OFFLINE
+}
+
+enum TaskStatus {
+  QUEUED
+  EXECUTING
+  WAITING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model Employee {
+  id           String         @id @default(uuid())
+  companyId    String
+  name         String         @default("")
+  role         String         @default("")
+  department   String         @default("")
+  /// nama provider (tampilan); sumber kebenaran = providerId
+  provider     String         @default("")
+  providerId   String?
+  model        String         @default("")
+  skills       String[]       @default([])
+  systemPrompt String         @default("") @db.Text
+  deskIndex    Int
+  /// skin/hair/hairStyle/top/bottom/shoes/height/glasses/jacket (frontend lib/appearance.ts)
+  appearance   Json           @default("{}")
+  status       EmployeeStatus @default(IDLE)
+  slot         Int?
+  currentTask  String?
+  currentTool  String?
+  progress     Float          @default(0)
+  isDemo       Boolean        @default(false)
+  createdById  String?
+  updatedById  String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  deletedAt    DateTime?
+
+  company    Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  aiProvider AiProvider?        @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  tasks      Task[]
+  activities EmployeeActivity[]
+
+  @@index([companyId, status])
+  @@index([companyId, deletedAt])
+  @@map("employee")
+}
+
+model Task {
+  id          String     @id @default(uuid())
+  companyId   String
+  employeeId  String
+  title       String     @default("")
+  description String?    @db.Text
+  status      TaskStatus @default(QUEUED)
+  /// panel | discussion | api
+  source      String     @default("panel")
+  isDemo      Boolean    @default(false)
+  createdById String?
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  company  Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  events   TaskEvent[]
+
+  @@index([companyId, status])
+  @@index([employeeId, createdAt])
+  @@map("task")
+}
+
+model TaskEvent {
+  id        String      @id @default(uuid())
+  taskId    String
+  from      TaskStatus?
+  to        TaskStatus
+  note      String?
+  actorId   String?
+  createdAt DateTime    @default(now())
+  task      Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, createdAt])
+  @@map("task_event")
+}
+
+/// Feed aktivitas agent (monitor, workstation, panel) — terpisah dari ActivityLog (audit user).
+model EmployeeActivity {
+  id         String   @id @default(uuid())
+  companyId  String
+  employeeId String
+  /// status | info | tool | output | ai | warn | error | instruction | done
+  kind       String   @default("info")
+  text       String   @default("") @db.Text
+  createdAt  DateTime @default(now())
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId, createdAt])
+  @@index([companyId, createdAt])
+  @@map("employee_activity")
+}

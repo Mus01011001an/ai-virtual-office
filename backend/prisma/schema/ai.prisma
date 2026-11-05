@@ -1,0 +1,32 @@
+// Kredensial AI provider per office (seperti "Credentials" di n8n).
+// API key disimpan terenkripsi (common/utils/secret-box.ts, AES-256-GCM) dan tidak pernah dikirim balik ke frontend.
+
+model AiProvider {
+  id              String    @id @default(uuid())
+  companyId       String
+  name            String    @default("")
+  /// openai_compatible (9router, OpenRouter, Ollama, LM Studio, …) | openai | anthropic | google | deepseek
+  type            String    @default("openai_compatible")
+  baseUrl         String    @default("")
+  apiKeyEnc       String    @default("") @db.Text
+  /// mis. "sk-1••••••••x9Q" untuk ditampilkan di UI
+  apiKeyHint      String?
+  /// model yang diaktifkan untuk dipilih AI employee
+  models          String[]  @default([])
+  defaultModel    String?
+  isActive        Boolean   @default(true)
+  lastTestedAt    DateTime?
+  lastTestOk      Boolean?
+  lastTestMessage String?
+  createdById     String?
+  updatedById     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employees Employee[]
+
+  @@index([companyId, deletedAt])
+  @@map("ai_provider")
+}

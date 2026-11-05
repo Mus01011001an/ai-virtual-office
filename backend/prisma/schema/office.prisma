@@ -1,0 +1,22 @@
+// Profil office virtual (1-1 dengan Company). Template, timezone & jam kerja dipakai layer 3D dan scheduler.
+
+enum OfficeTemplate {
+  EMPTY
+  DEMO_TEAM
+}
+
+model OfficeProfile {
+  id        String         @id @default(uuid())
+  companyId String         @unique
+  template  OfficeTemplate @default(EMPTY)
+  timezone  String         @default("Asia/Jakarta")
+  workStart String         @default("09:00")
+  workEnd   String         @default("18:00")
+  /// [{ start: "12:00", end: "13:00" }]
+  breaks    Json           @default("[{\"start\":\"12:00\",\"end\":\"13:00\"}]")
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  company   Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("office_profile")
+}
