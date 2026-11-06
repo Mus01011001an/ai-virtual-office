@@ -5,6 +5,7 @@ import { proceduralAudio } from '../audio/procedural-audio'
 import { voiceEngine } from '../audio/voice-engine'
 import { updateVoiceProfile } from '../lib/api'
 import { Btn, Field, Modal, Toggle } from './ui'
+import { spatialVoice } from '../audio/spatial-voice'
 
 export function AudioSettingsModal() {
   const open = useOffice((s) => s.audioSettingsOpen)
@@ -23,6 +24,8 @@ export function AudioSettingsModal() {
   const [gender, setGender] = useState<'male' | 'female' | 'neutral'>('neutral')
   const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState('')
+  const [voiceRadius, setVoiceRadius] = useState(spatialVoice.voiceRadius)
+  const [micLive, setMicLive] = useState(spatialVoice.isMicActive)
 
   if (!open) return null
 
@@ -121,6 +124,59 @@ export function AudioSettingsModal() {
             ✓ {savedMsg}
           </div>
         )}
+
+        {/* Roblox-Style Proximity Realtime Voice Chat */}
+        <div className="space-y-3.5 rounded-2xl border border-cyan-400/25 bg-cyan-950/20 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="font-bold text-white flex items-center gap-2">
+                <span>🎙️</span> Roblox-Style Proximity Realtime Voice
+              </h4>
+              <p className="text-xs text-bone/60">
+                Pemain saling mendengar dalam radius fisik kantor. Dilengkapi halo bicara di atas avatar.
+              </p>
+            </div>
+            <button
+              onClick={async () => {
+                if (spatialVoice.isMicActive) {
+                  spatialVoice.stopMicrophone()
+                } else {
+                  await spatialVoice.startMicrophone()
+                }
+                setMicLive(spatialVoice.isMicActive)
+              }}
+              className={`rounded-full px-3.5 py-1.5 text-xs font-mono font-bold transition-all cursor-pointer ${
+                micLive
+                  ? 'bg-rose-500/20 text-rose-300 ring-1 ring-rose-500/50 animate-pulse'
+                  : 'bg-cyan-400/20 text-cyan-300 ring-1 ring-cyan-400/40 hover:bg-cyan-400/30'
+              }`}
+            >
+              {micLive ? '🔴 Mic Aktif (Bicara)' : '🎙️ Nyalakan Mic'}
+            </button>
+          </div>
+
+          <Field label={`Radius Suara Proximity: ${voiceRadius} Meter`}>
+            <div className="space-y-1.5">
+              <input
+                type="range"
+                min="3"
+                max="30"
+                value={voiceRadius}
+                onChange={(e) => {
+                  const val = Number(e.target.value)
+                  setVoiceRadius(val)
+                  spatialVoice.setVoiceRadius(val)
+                }}
+                className="w-full accent-cyan-400 h-2 rounded-lg bg-black/40 cursor-pointer"
+              />
+              <div className="flex justify-between text-[11px] text-bone/45 font-mono">
+                <span>3m (Dekat Meja)</span>
+                <span>10m (Default / Area Rapat)</span>
+                <span>30m (Satu Kantor Luas)</span>
+              </div>
+            </div>
+          </Field>
+        </div>
 
         {/* Volume Sliders Grid */}
         <div className="space-y-4 rounded-2xl border border-white/5 bg-white/[0.01] p-4">

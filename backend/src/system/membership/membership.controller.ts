@@ -45,18 +45,18 @@ export class MembershipController {
   invite(
     @ActiveCompany() companyId: string,
     @Session() session: UserSession,
-    @Body() body: { userId?: string; email?: string; roleId?: string },
+    @Body() body: { userId?: string; email?: string; username?: string; roleId?: string },
   ) {
     return this.membershipService.invite(companyId, session.user.id, body);
   }
 
   @Post('create-account')
   @Permission(P_MEMBER_MANAGE)
-  @ApiOperation({ summary: 'Buat akun teman (password sementara) & tentukan hak akses di office aktif' })
+  @ApiOperation({ summary: 'Buat akun teman (username + password) & tentukan hak akses di office aktif' })
   createAccount(
     @ActiveCompany() companyId: string,
     @Session() session: UserSession,
-    @Body() body: { name: string; email: string; password: string; roleId?: string; permissions?: string[] },
+    @Body() body: { name?: string; username?: string; email?: string; password: string; roleId?: string; permissions?: string[] },
   ) {
     return this.membershipService.createAccount(companyId, session.user.id, body);
   }

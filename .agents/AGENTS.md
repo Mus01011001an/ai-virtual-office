@@ -185,6 +185,34 @@ Sebelum menulis satu kata pun di dalam Implementation Plan, Anda **DIWAJIBKAN** 
     - Bantalan atas kursi secara otomatis memutar sudut rotasinya mengikuti *yaw* agen atau pemain yang mendudukinya, menyelaraskan orientasi kursi saat agen dipanggil berkumpul (*Gather*) mendengarkan arahan CEO tanpa *clipping*.
 26. **Chronological Activity Feed Discipline (Phase 10)**:
     - Panel samping karyawan (`EmployeePanel.tsx`) menyajikan aktivitas dalam urutan kronologis natural murni (pesan lama di atas, entri baru di paling bawah) tanpa pemanggilan `.reverse()`, dilengkapi *auto-scroll to bottom* saat aktivitas bertambah secara real-time.
+27. **Username-Based Authentication & Transparent Friend Provisioning (Phase 11)**:
+    - Login kredensial mendukung username alfanumerik tanpa kewajiban email.
+    - Jika email tidak diisi saat mengundang rekan/teman baru, backend secara otomatis membuat virtual domain email internal (`${username}@office.local`), menjamin BetterAuth tetap bekerja sempurna tanpa mengekspos kompleksitas email ke pemain.
+28. **Game-Style Escape Key (<kbd>Esc</kbd>) Pause Menu Architecture (Phase 11)**:
+    - Penanganan tombol Escape bertingkat: menekan <kbd>Esc</kbd> menutup modal/workstation yang sedang aktif terlebih dahulu.
+    - Saat seluruh panel tertutup, menekan <kbd>Esc</kbd> memunculkan Game Pause Menu (`EscapeMenu.tsx`) bergaya game RPG/cyberpunk yang menyatukan menu Ganti Office, Undang Teman, MCP Tools, Spatial Voice, Jadwal, Pengaturan Grafis, dan Logout sehingga tampilan layar tetap bersih dan minimalis.
+29. **Context Compaction Session Isolation (Phase 11)**:
+    - `AgentMemoryService.getContextStatus` membatasi agregasi penggunaan token hanya pada data yang dibuat pada atau setelah `sessionStartDate` (diambil dari `createdAt` entri `AgentSessionMemory` terakhir).
+    - Merangkum sesi secara instan mengarsipkan pencapaian ke memori episodik permanen dan mengembalikan gauge konteks ke 1% (status LOW hijau) tanpa menghilangkan riwayat kerja masa lalu.
+30. **Interactive Unix-Style Workstation Terminal (Phase 11)**:
+    - Tab Terminal pada Workstation (`TerminalTab.tsx`) menyediakan command prompt interaktif `$ ` dengan riwayat navigasi panah atas/bawah, command router (`help`, `status`, `files`, `cat`, `clear`), serta eksekusi kode aman (`py <code>`, `js <code>`) via `SecureRunnerService`.
+31. **Roblox-Style 3D Proximity Realtime Voice Chat & WebRTC Signaling (Phase 11)**:
+    - P2P audio streaming memanfaatkan `RTCPeerConnection` dengan signaling yang disalurkan melalui SSE dan endpoint relay (`POST /office/presence/voice-signal`).
+    - Atenuasi spasial 3D fisik: volume suara meluruh secara linear $\max(0, 1 - d/\text{voiceRadius})$ dengan radius yang dapat disesuaikan (3m–30m), serta stereo panning berdasarkan sudut pandang pemain.
+    - Avatar menampilkan indikator visual berupa halo hijau bercahaya berdenyut di atas kepala saat pemain sedang aktif berbicara.
+32. **Bidirectional IDE MCP Server Hub (Phase 11)**:
+    - Backend menyediakan endpoint MCP Server bawaan di `/office/mcp/server/sse` dan `/office/mcp/server/messages` yang mengimplementasikan protokol JSON-RPC 2.0 `tools/list` dan `tools/call`.
+    - Memfasilitasi IDE eksternal (Google Antigravity, Cursor IDE, Codex CLI, OpenCode) untuk memeriksa agen kantor, membaca virtual files Brain Studio, dan mendelegasikan tugas kode langsung dari IDE.
+33. **3D Cyberpunk Game Title Screen & World Save Slots (Phase 11)**:
+    - Layar awal login mengintegrasikan Three.js Canvas terisolasi (`GameTitleScene.tsx`) dengan kamera orbit, floating cyber platform, neon grid, voxel servers, dan partikel cyber dust.
+    - Ruang-ruang kantor disajikan dengan format "World Save Slots" / "Level Select" bergaya arcade.
+34. **Human-Like Conversational Persona, Multi-Message Burst & Markdown Engine (Phase 11)**:
+    - Standardisasi gaya komunikasi seluruh agen: dilarang berbahasa bot kaku ("Sebagai asisten AI..."), beralih ke persona rekan kerja tech startup di Indonesia yang hangat, cerdas, santai, solutif, dan ringkas.
+    - Batasan balon obrolan ramping: maksimal 1–3 kalimat pendek per pesan (~140–180 karakter) pada 3D canvas `NameTag.tsx` (`max-w-[230px]`) dan HUD obrolan.
+    - Multi-Message Sequential Burst Engine: penggunaan delimiter `---` diinstruksikan pada prompt LLM dan didukung oleh `splitIntoHumanMessages()` di `DiscussionService` dan `DebateOrchestratorService`. Backend memancarkan sub-pesan bertahap via SSE dengan jeda mengetik alami (1000ms–2000ms) dan visual typing indicator `• • •`.
+    - Zero-Dependency Markdown Formatter Engine (`MarkdownView.tsx`): parsing berbasis AST/regex murni tanpa dependensi eksternal npm, aman dari XSS (tanpa `dangerouslySetInnerHTML`), mendukung bold, italic, inline code, code blocks, bullet/numbered lists, quotes, dan link adaptif.
+    - Universal Seeding Hook: `EmployeeService.create` secara deterministik langsung memicu `seedDefaultBundle` dan `compilePrompt` untuk setiap karyawan baru yang direkrut, menjamin agen baru memiliki kepribadian manusiawi sejak detik pertama.
+
 
 
 

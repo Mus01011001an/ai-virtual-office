@@ -53,6 +53,7 @@ model Company {
 
 model User {
   id                  String    @id @default(uuid())
+  username            String?   @unique
   name                String    @default("")
   email               String?   @unique
   phone               String?

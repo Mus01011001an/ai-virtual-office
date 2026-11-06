@@ -68,6 +68,8 @@ export interface Office {
   employeeCount?: number
   role?: string | null
   isOwner?: boolean
+  voiceRadius?: number
+  voiceProximityEnabled?: boolean
 }
 
 /** User login + konteks office aktif (hasil customSession backend). */
@@ -126,6 +128,7 @@ export interface RemoteUserData {
   z: number
   yaw: number
   anim: 'idle' | 'walk' | 'run'
+  isSpeaking?: boolean
   lastSeen?: number
 }
 

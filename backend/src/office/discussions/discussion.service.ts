@@ -85,6 +85,56 @@ export class DiscussionService {
     return msg;
   }
 
+  /**
+   * Memecah respons agen menjadi pesan-pesan pendek manusiawi (multi-message burst)
+   */
+  splitIntoHumanMessages(rawText: string): string[] {
+    if (!rawText || !rawText.trim()) return [];
+
+    // 1. Cek delimiter eksplisit '---' yang berada di baris baru
+    const delimiterRegex = /(?:^|\n)\s*---\s*(?:\n|$)/g;
+    if (delimiterRegex.test(rawText)) {
+      const parts = rawText
+        .split(delimiterRegex)
+        .map((p) => p.trim())
+        .filter((p) => p.length > 0);
+      if (parts.length > 0) return parts.slice(0, 4);
+    }
+
+    // 2. Fallback jika tidak menggunakan delimiter tapi teks panjang (> 200 karakter)
+    const trimmed = rawText.trim();
+    if (trimmed.length > 200) {
+      // Pecah berdasarkan double newline (paragraf)
+      const paragraphs = trimmed
+        .split(/\n{2,}/)
+        .map((p) => p.trim())
+        .filter((p) => p.length > 0);
+
+      if (paragraphs.length > 1) {
+        return paragraphs.slice(0, 3);
+      }
+
+      // Jika masih satu paragraf panjang, pecah berdasarkan batas kalimat
+      const sentences = trimmed.match(/[^.!?]+[.!?]+(?:\s|$)/g);
+      if (sentences && sentences.length >= 2) {
+        const chunks: string[] = [];
+        let current = '';
+        for (const s of sentences) {
+          if ((current + s).length > 160 && current) {
+            chunks.push(current.trim());
+            current = s;
+          } else {
+            current += s;
+          }
+        }
+        if (current.trim()) chunks.push(current.trim());
+        if (chunks.length > 1) return chunks.slice(0, 3);
+      }
+    }
+
+    return [trimmed];
+  }
+
   private async dispatchAiParticipants(
     companyId: string,
     discussionId: string,
@@ -132,38 +182,52 @@ export class DiscussionService {
           });
           replyText = result.text;
         } else {
-          // 2b. Simulated intelligent response jika belum menghubungkan API key
-          await new Promise((r) => setTimeout(r, 1200));
-          replyText = `Siap, dari sudut pandang ${emp.role}: untuk "${userText.slice(0, 35)}...", saya akan analisis langkah teknis terbaik dan segera laksanakan.`;
+          // 2b. Simulated intelligent human-like response jika belum menghubungkan API key
+          await new Promise((r) => setTimeout(r, 1000));
+          replyText = `Siap mas, dari sudut pandang ${emp.role}: aku cek untuk "${userText.slice(0, 30)}..." ya! 👀\n---\nLangkah teknisnya udah aku susun dan segera aku tindaklanjuti.`;
         }
 
-        // 3. Simpan pesan balasan karyawan
-        const aiMsg = await this.prisma.discussionMessage.create({
-          data: {
-            companyId,
-            discussionId,
-            fromType: 'employee',
-            fromId: emp.id,
-            text: replyText.trim(),
-          },
-        });
+        // 3. Pecah respons menjadi pesan-pesan beruntun (multi-message burst)
+        const chunks = this.splitIntoHumanMessages(replyText);
 
-        await this.prisma.employeeActivity.create({
-          data: {
-            companyId,
+        for (let i = 0; i < chunks.length; i++) {
+          const chunk = chunks[i];
+
+          // Jeda mengetik alami antar-pesan
+          if (i > 0) {
+            this.events.emit(companyId, 'employee.updated', { id: emp.id, status: 'THINKING' });
+            const typingWait = Math.min(2000, Math.max(900, chunk.length * 18));
+            await new Promise((r) => setTimeout(r, typingWait));
+          }
+
+          // Simpan pesan balasan karyawan ke database
+          const aiMsg = await this.prisma.discussionMessage.create({
+            data: {
+              companyId,
+              discussionId,
+              fromType: 'employee',
+              fromId: emp.id,
+              text: chunk,
+            },
+          });
+
+          await this.prisma.employeeActivity.create({
+            data: {
+              companyId,
+              employeeId: emp.id,
+              kind: 'ai',
+              text: `[Diskusi] ${chunk.slice(0, 80)}`,
+            },
+          });
+
+          // Broadcast event realtime
+          this.events.emit(companyId, 'discussion.message', aiMsg);
+          this.events.emit(companyId, 'activity.created', {
             employeeId: emp.id,
             kind: 'ai',
-            text: `[Diskusi] Menanggapi: "${replyText.slice(0, 80)}..."`,
-          },
-        });
-
-        // Broadcast event realtime
-        this.events.emit(companyId, 'discussion.message', aiMsg);
-        this.events.emit(companyId, 'activity.created', {
-          employeeId: emp.id,
-          kind: 'ai',
-          text: `[Diskusi] ${replyText.slice(0, 60)}...`,
-        });
+            text: `[Diskusi] ${chunk.slice(0, 60)}...`,
+          });
+        }
 
         // 4. Deteksi apakah perintah meminta pembuatan task nyata
         const taskRegex = /\b(tolong|kerjakan|buat|bikin|perbaiki|fix|deploy|audit|analisis|test|implement)\b/i;

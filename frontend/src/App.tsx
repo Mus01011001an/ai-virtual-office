@@ -19,6 +19,8 @@ import { AiProvidersModal } from './hud/AiProviders'
 import { ChangePasswordModal } from './hud/Auth'
 import { MembersModal } from './hud/MembersModal'
 import { McpModal } from './hud/McpModal'
+import { EscapeMenu } from './hud/EscapeMenu'
+import { IdeIntegrationModal } from './hud/IdeIntegrationModal'
 import { bootstrapSession } from './state/remote'
 import { CreateEmployeeModal, NewOfficeModal, SettingsPanel } from './hud/Modals'
 import { ClickToPlay, ControlsHint, Crosshair, Hotkeys, InteractPrompt, LoadingBar, StartScreen } from './hud/Overlay'
@@ -73,6 +75,8 @@ export default function App() {
       <ChangePasswordModal />
       <MembersModal />
       <McpModal />
+      <EscapeMenu />
+      <IdeIntegrationModal />
     </div>
   )
 }

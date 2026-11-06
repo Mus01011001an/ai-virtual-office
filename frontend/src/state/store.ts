@@ -58,6 +58,8 @@ interface OfficeState {
   settingsOpen: boolean
   membersOpen: boolean
   mcpOpen: boolean
+  escapeMenuOpen: boolean
+  ideModalOpen: boolean
   /** employee yang sedang dipanggil/ikut CEO (mendengarkan diskusi) */
   summoned: string[]
   chat: ChatMsg[]
@@ -113,6 +115,8 @@ export const useOffice = create<OfficeState>()(
       settingsOpen: false,
       membersOpen: false,
       mcpOpen: false,
+      escapeMenuOpen: false,
+      ideModalOpen: false,
       whiteboardOpen: false,
       debateMode: false,
       whiteboard: {
@@ -201,6 +205,8 @@ export const isUiBlocking = () => {
     s.newOfficeOpen ||
     s.membersOpen ||
     s.mcpOpen ||
+    s.escapeMenuOpen ||
+    s.ideModalOpen ||
     s.createEmployeeOpen ||
     s.providersOpen ||
     s.whiteboardOpen ||

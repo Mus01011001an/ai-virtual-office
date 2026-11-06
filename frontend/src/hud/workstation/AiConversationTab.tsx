@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
 import { fetchConversationTraces, type WorkstationTrace } from '../../lib/api'
 import { Btn, DemoBadge, fmtTime } from '../ui'
+import { MarkdownView } from '../MarkdownView'
 
 interface Props {
   employeeId: string
@@ -330,8 +331,8 @@ export function AiConversationTab({ employeeId, employeeName, isDemo }: Props) {
                       </div>
                       <span className="text-[10px] text-bone/40">{fmtTime(new Date(item.createdAt).getTime())}</span>
                     </div>
-                    <div className={`whitespace-pre-wrap leading-relaxed ${isTool ? 'text-sky-200/90 text-[11px]' : 'text-bone/90'}`}>
-                      {item.text}
+                    <div className={`leading-relaxed ${isTool ? 'text-sky-200/90 text-[11px] font-mono whitespace-pre-wrap' : 'text-bone/90'}`}>
+                      {isTool ? item.text : <MarkdownView content={item.text} />}
                     </div>
                   </div>
                 )

@@ -3,6 +3,7 @@ import { useOffice } from '../state/store'
 import { Avatar, Btn, CloseBtn, DemoBadge, StatusPill, fmtTime, inputCls } from './ui'
 import { toggleSummon } from '../state/gather'
 import { assignTask, instruct } from '../state/remote'
+import { MarkdownView } from './MarkdownView'
 
 const KIND_CLS: Record<string, string> = {
   tool: 'text-cyan-300', output: 'text-emerald-200/80', warn: 'text-amber-300', done: 'text-emerald-300', instruction: 'text-accent-2', error: 'text-red-300',
@@ -87,7 +88,9 @@ export function EmployeePanel() {
             {(acts ?? []).slice(-12).map((a) => (
               <div key={a.id} className="flex gap-2 items-start py-0.5 border-b border-white/[0.02] last:border-0 hover:bg-white/[0.02] px-1 rounded transition-colors">
                 <span className="shrink-0 text-bone/35 text-[10px] mt-0.5">{fmtTime(a.at)}</span>
-                <span className={`${KIND_CLS[a.kind] ?? 'text-bone/75'} break-words flex-1`}>{a.text}</span>
+                <span className={`${KIND_CLS[a.kind] ?? 'text-bone/75'} break-words flex-1`}>
+                  <MarkdownView content={a.text} compact />
+                </span>
               </div>
             ))}
             {!acts?.length && <div className="text-bone/35 py-3 text-center text-xs">Belum ada aktivitas terekam hari ini.</div>}

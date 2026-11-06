@@ -27,17 +27,25 @@ export class CompanyService {
     let ownerUserId = userId;
     let isProvisionedForOther = false;
 
-    if (dto.owner?.email) {
+    if (dto.owner?.email || dto.owner?.username || dto.owner?.name) {
       isProvisionedForOther = true;
-      const email = dto.owner.email.trim().toLowerCase();
-      let targetUser = await this.prisma.user.findUnique({ where: { email } });
+      const rawUser = (dto.owner.username || dto.owner.name || '').trim().toLowerCase().replace(/[^a-z0-9_.-]/g, '');
+      const email = (dto.owner.email?.trim().toLowerCase()) || `${rawUser || 'owner_' + Date.now()}@office.local`;
+      let targetUser = await this.prisma.user.findFirst({
+        where: {
+          OR: [
+            ...(rawUser ? [{ username: { equals: rawUser, mode: 'insensitive' as const } }] : []),
+            { email },
+          ],
+        },
+      });
       if (!targetUser) {
         const { user } = await auth.api.signUpEmail({
           body: { email, password: dto.owner.password, name: dto.owner.name.trim() },
         });
         targetUser = await this.prisma.user.update({
           where: { id: user.id },
-          data: { mustChangePassword: true },
+          data: { username: rawUser || null, mustChangePassword: true },
         });
       }
       ownerUserId = targetUser.id;

@@ -53,6 +53,12 @@ export class EmployeeController {
     return this.service.instruct(companyId, id, dto.text, s.user.name);
   }
 
+  @Post('sync-human-standards')
+  @Permission(P_EMPLOYEE_WRITE)
+  syncHumanStandards(@ActiveCompany() companyId: string) {
+    return this.service.syncAllAgentsToHumanStandard(companyId);
+  }
+
   @Delete(':id')
   @Permission(P_EMPLOYEE_DELETE)
   remove(@ActiveCompany() companyId: string, @Param('id') id: string, @Query('force') force: string, @Session() s: UserSession) {

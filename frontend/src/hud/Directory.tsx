@@ -44,6 +44,9 @@ export function Directory() {
                   + Rekrut
                 </Btn>
               )}
+              <Btn variant="ghost" onClick={() => set({ membersOpen: true })}>
+                + Teman
+              </Btn>
               <CloseBtn onClick={() => set({ directoryOpen: false })} />
             </div>
           }

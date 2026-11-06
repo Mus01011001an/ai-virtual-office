@@ -151,7 +151,7 @@ export const concludeMeeting = (
   }>(`/office/discussions/${discussionId}/conclude`, dto)
 
 // ── Presence & Schedule API (Phase 6) ──
-export const sendPresence = (pos: { x: number; y: number; z: number; yaw: number; anim?: 'idle' | 'walk' | 'run' }) =>
+export const sendPresence = (pos: { x: number; y: number; z: number; yaw: number; anim?: 'idle' | 'walk' | 'run'; isSpeaking?: boolean }) =>
   post<{ onlineCount: number }>('/office/presence', pos)
 
 export const fetchOnlineUsers = () =>

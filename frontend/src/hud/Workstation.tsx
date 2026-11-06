@@ -7,6 +7,7 @@ import { FilesTab } from './workstation/FilesTab'
 import { PerformanceTab } from './workstation/PerformanceTab'
 import { AgentBrainStudioTab } from './workstation/AgentBrainStudioTab'
 import { ContextMemoryTab } from './workstation/ContextMemoryTab'
+import { TerminalTab } from './workstation/TerminalTab'
 
 const TABS = ['Overview', 'Brain Studio', 'Context & Memory', 'AI Conversation', 'Tasks', 'Files', 'Terminal', 'Activity', 'Performance'] as const
 type Tab = (typeof TABS)[number]
@@ -61,12 +62,7 @@ export function Workstation() {
             </div>
           )}
           {tab === 'Terminal' && (
-            <div ref={term} className="h-full min-h-[260px] max-h-[460px] overflow-y-auto rounded-2xl border border-line bg-black/60 p-4 font-mono text-[12px] leading-relaxed">
-              {acts.filter((a) => a.kind === 'tool' || a.kind === 'output' || a.kind === 'error').map((a) => (
-                <div key={a.id} className={a.kind === 'tool' ? 'mt-2 text-cyan-300' : a.kind === 'error' ? 'text-red-300' : 'whitespace-pre text-emerald-100/85'}>{a.text}</div>
-              ))}
-              {!acts.some((a) => a.kind === 'tool') && <div className="text-bone/35">Belum ada eksekusi tool.</div>}
-            </div>
+            <TerminalTab employee={e} acts={acts} />
           )}
           {tab === 'Activity' && (
             <div className="space-y-1.5 font-mono text-xs">

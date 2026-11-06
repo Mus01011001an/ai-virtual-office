@@ -5,6 +5,8 @@ import { Html } from '@react-three/drei'
 import { Humanoid } from './Humanoid'
 import type { Appearance, RemoteUserData } from '../state/types'
 import type { PoseName } from './poses'
+import { spatialVoice } from '../audio/spatial-voice'
+import { runtime } from '../state/runtime'
 
 export function RemotePlayer({ data }: { data: RemoteUserData }) {
   const rootRef = useRef<THREE.Group>(null!)
@@ -49,6 +51,12 @@ export function RemotePlayer({ data }: { data: RemoteUserData }) {
     let diff = ((targetYaw.current - curYaw + Math.PI) % (Math.PI * 2)) - Math.PI
     if (diff < -Math.PI) diff += Math.PI * 2
     rootRef.current.rotation.y += diff * Math.min(1, dt * 10)
+
+    // Perbarui 3D spatial audio untuk player ini
+    spatialVoice.updateSpatialAudio(
+      { x: runtime.player.x, z: runtime.player.z, yaw: runtime.player.yaw },
+      [data],
+    )
   })
 
   const roleColor =
@@ -62,8 +70,19 @@ export function RemotePlayer({ data }: { data: RemoteUserData }) {
     <group ref={rootRef} position={[data.x, data.y, data.z]} rotation-y={data.yaw}>
       <Humanoid appearance={appearance} poseRef={poseRef} seed={seed} />
 
+      {/* 3D Roblox-Style Speech Halo Ring saat berbicara */}
+      {data.isSpeaking && (
+        <group position={[0, 2.05, 0]}>
+          <mesh rotation={[Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[0.26, 0.34, 24]} />
+            <meshBasicMaterial color="#22c55e" side={THREE.DoubleSide} transparent opacity={0.85} />
+          </mesh>
+          <pointLight color="#22c55e" intensity={1.2} distance={2.5} />
+        </group>
+      )}
+
       {/* NameTag di atas kepala remote player */}
-      <Html position={[0, 2.2, 0]} center distanceFactor={14}>
+      <Html position={[0, 2.25, 0]} center distanceFactor={14}>
         <div className="flex flex-col items-center pointer-events-none select-none">
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-ink/90 backdrop-blur-md border border-white/15 shadow-xl text-white">
             <span
@@ -71,6 +90,11 @@ export function RemotePlayer({ data }: { data: RemoteUserData }) {
                 data.role === 'OWNER' ? 'bg-sky-400' : 'bg-emerald-400'
               } animate-pulse`}
             />
+            {data.isSpeaking && (
+              <span className="text-[10px] text-emerald-400 animate-pulse font-bold">
+                🎙️
+              </span>
+            )}
             <span className="text-[11px] font-bold tracking-tight">{data.name}</span>
             <span className={`text-[8px] font-black px-1.5 py-0.5 rounded ${roleColor} uppercase tracking-wider`}>
               {data.role}

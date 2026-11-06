@@ -8,7 +8,7 @@ export type OfficeEventType =
   | 'artifact.created'
   | 'whiteboard.updated' | 'discussion.concluded'
   | 'schedule.transition' | 'standup.started' | 'standup.item' | 'standup.completed'
-  | 'presence.update'
+  | 'presence.update' | 'presence.voice-signal'
   | 'approval.requested' | 'approval.decided' | 'integration.event';
 
 interface OfficeEvent { companyId: string; type: OfficeEventType; data: unknown }

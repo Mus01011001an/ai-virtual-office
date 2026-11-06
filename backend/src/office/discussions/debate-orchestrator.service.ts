@@ -100,9 +100,11 @@ export class DebateOrchestratorService {
 
         const prompt =
           `Topik Rapat: "${topic}".\n` +
-          `Sikap / Peran Anda saat ini: [${plan.stance}].\n` +
+          `Sikap / Peran Anda: [${plan.stance}].\n` +
           `Arahan: ${plan.directive}\n` +
-          `Sampaikan tanggapan Anda secara lugas, profesional, dan to the point (maksimal 3-4 kalimat). Berikan argumen yang berbobot sesuai keahlian Anda sebagai ${speaker.role}.`;
+          `Sampaikan tanggapan Anda layaknya manusia di ruang rapat startup (singkat, padat, berbobot, maksimal 2-3 kalimat pendek). ` +
+          `Jika memiliki 2 poin terpisah, gunakan delimiter '---' di baris baru agar dikirim sebagai 2 balon pesan terpisah. ` +
+          `Gunakan format markdown rapi untuk istilah teknis.`;
 
         let replyText = '';
         if (speaker.aiProvider && speaker.aiProvider.isActive) {
@@ -120,38 +122,55 @@ export class DebateOrchestratorService {
         // 4. Hitung kenaikan konsensus
         consensus = Math.min(95, consensus + Math.round(65 / actualRounds));
 
-        // 5. Simpan pesan ke database
-        const msg = await this.prisma.discussionMessage.create({
-          data: {
-            companyId,
-            discussionId,
-            fromType: 'employee',
-            fromId: speaker.id,
-            stance: plan.stance,
-            turnIndex: round,
-            text: replyText.trim(),
-          },
-        });
+        // 5. Pecah jika ada delimiter multi-message
+        const chunks = replyText
+          .split(/(?:^|\n)\s*---\s*(?:\n|$)/g)
+          .map((c) => c.trim())
+          .filter((c) => c.length > 0);
+        const actualChunks = chunks.length > 0 ? chunks.slice(0, 3) : [replyText.trim()];
 
-        // 6. Update Papan Tulis (Whiteboard)
-        await this.whiteboard.appendPoint(
-          companyId,
-          discussionId,
-          {
-            speaker: speaker.name,
-            stance: plan.stance,
-            text: replyText.slice(0, 90) + (replyText.length > 90 ? '…' : ''),
-          },
-          consensus,
-        );
+        for (let cIdx = 0; cIdx < actualChunks.length; cIdx++) {
+          const chunk = actualChunks[cIdx];
+          if (cIdx > 0) {
+            this.events.emit(companyId, 'employee.updated', { id: speaker.id, status: 'THINKING' });
+            await new Promise((r) => setTimeout(r, 1200));
+          }
 
-        // 7. Emit realtime SSE
-        this.events.emit(companyId, 'discussion.message', msg);
-        this.events.emit(companyId, 'activity.created', {
-          employeeId: speaker.id,
-          kind: 'ai',
-          text: `[Debat ${plan.stance}] ${replyText.slice(0, 60)}…`,
-        });
+          // Simpan pesan ke database
+          const msg = await this.prisma.discussionMessage.create({
+            data: {
+              companyId,
+              discussionId,
+              fromType: 'employee',
+              fromId: speaker.id,
+              stance: plan.stance,
+              turnIndex: round,
+              text: chunk,
+            },
+          });
+
+          // Update Papan Tulis (Whiteboard) hanya pada poin utama / chunk pertama
+          if (cIdx === 0) {
+            await this.whiteboard.appendPoint(
+              companyId,
+              discussionId,
+              {
+                speaker: speaker.name,
+                stance: plan.stance,
+                text: chunk.slice(0, 90) + (chunk.length > 90 ? '…' : ''),
+              },
+              consensus,
+            );
+          }
+
+          // Emit realtime SSE
+          this.events.emit(companyId, 'discussion.message', msg);
+          this.events.emit(companyId, 'activity.created', {
+            employeeId: speaker.id,
+            kind: 'ai',
+            text: `[Debat ${plan.stance}] ${chunk.slice(0, 60)}…`,
+          });
+        }
 
         // Jeda waktu antar pembicara agar terasa natural di 3D scene (1.5 detik)
         await new Promise((r) => setTimeout(r, 1500));

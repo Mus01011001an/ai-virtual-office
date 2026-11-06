@@ -62,15 +62,56 @@ function relevance(e: Employee, text: string) {
   return { score, named, best }
 }
 
-function demoReply(e: Employee, text: string, best: ReturnType<typeof relevance>['best'], primary: boolean) {
-  const clause = best?.topic.clause ?? 'bantu dari sisi bagian saya'
-  const kw = best ? `"${best.kw}"` : 'ini'
-  if (GREETING_RE.test(text) && text.trim().split(/\s+/).length <= 4) return pick(['Halo! Siap mendengarkan.', 'Hai, saya di sini.', 'Halo, ada yang bisa saya bantu?'])
-  if (!primary) return `Saya bantu dari sisi ${e.role}: ${clause}.`
-  if (/\bsiapa\b/i.test(text)) return `Saya bisa ambil itu. Untuk ${kw}, saya akan ${clause}.`
-  if (isTaskMsg(text)) return `${pick(['Siap, saya ambil.', 'Oke, saya kerjakan.', 'Noted, saya handle.'])} Untuk ${kw}, saya akan ${clause}. Progresnya saya kabari di sini.`
-  if (QUESTION_RE.test(text)) return `${pick(['Dari sisi saya,', 'Menurut saya,', 'Soal itu,'])} untuk ${kw} saya perlu ${clause} dulu sebelum bisa jawab pasti. Mau saya mulai sekarang?`
-  return `${pick(['Noted.', 'Oke, paham.', 'Siap, dicatat.'])} Terkait ${kw}, nanti saya ${clause}.`
+function demoReply(e: Employee, text: string, best: ReturnType<typeof relevance>['best'], primary: boolean): string[] {
+  const clause = best?.topic.clause ?? 'bantu dari sisi keahlian saya'
+  const kw = best ? `\`${best.kw}\`` : 'ini'
+
+  if (GREETING_RE.test(text) && text.trim().split(/\s+/).length <= 4) {
+    return [
+      pick(['Halo mas! Siap di sini.', 'Hai pak, standby!', 'Halo! Ada yang bisa aku bantu?']),
+    ]
+  }
+
+  if (!primary) {
+    return [
+      `Siap, aku support dari sisi **${e.role}** ya!`,
+      `Fokus utamaku: ${clause}.`,
+    ]
+  }
+
+  if (/\bsiapa\b/i.test(text)) {
+    return [
+      `Bisa aku ambil itu mas! 🙋‍♂️`,
+      `Untuk ${kw}, aku bakal ${clause}.`,
+    ]
+  }
+
+  if (isTaskMsg(text)) {
+    return [
+      pick([
+        'Siap, langsung aku handle ya!',
+        'Oke boss, otw aku kerjain.',
+        'Noted mas, segera aku eksekusi.',
+      ]),
+      `Untuk ${kw}, aku bakal ${clause}. Progresnya aku kabari di sini 👍`,
+    ]
+  }
+
+  if (QUESTION_RE.test(text)) {
+    return [
+      pick([
+        'Terkait hal itu, menarik banget nih.',
+        'Dari sudut pandangku, ada beberapa poin penting.',
+        'Soal itu, aku ada masukan dikit.',
+      ]),
+      `Untuk ${kw}, aku perlu ${clause} dulu biar hasilnya presisi. Mau aku mulai sekarang?`,
+    ]
+  }
+
+  return [
+    pick(['Oke noted mas!', 'Siap, paham maksudnya.', 'Noted, udah aku catat.']),
+    `Terkait ${kw}, nanti aku ${clause}.`,
+  ]
 }
 
 // ---------- balon bicara ----------
@@ -126,19 +167,22 @@ export function sendMessage(raw: string) {
       void sendDiscussionMessage(text)
       return
     }
-    const start = 500 + i * 900 + Math.random() * 400
-    const typing = 900 + Math.random() * 900
-    window.setTimeout(() => {
-      if (!useOffice.getState().summoned.includes(e.id)) return
-      setBubble(e.id, '…')
+    const start = 400 + i * 900 + Math.random() * 300
+    const replies = demoReply(e, text, c.best, primary)
+
+    replies.forEach((msg, msgIdx) => {
+      const msgDelay = start + msgIdx * 1600 + Math.random() * 300
       window.setTimeout(() => {
-        if (!useOffice.getState().summoned.includes(e.id)) return setBubble(e.id, null)
-        const reply = demoReply(e, text, c.best, primary)
-        pushChat(e.id, reply, true)
-        setBubble(e.id, reply, Math.max(4500, reply.length * 65))
-        useOffice.getState().pushActivity(e.id, 'ai', `[DEMO] Balas CEO: ${reply}`)
-      }, typing)
-    }, start)
+        if (!useOffice.getState().summoned.includes(e.id)) return
+        setBubble(e.id, '…')
+        window.setTimeout(() => {
+          if (!useOffice.getState().summoned.includes(e.id)) return setBubble(e.id, null)
+          pushChat(e.id, msg, true)
+          setBubble(e.id, msg, Math.max(4200, msg.length * 60))
+          useOffice.getState().pushActivity(e.id, 'ai', `[DEMO] ${msg}`)
+        }, 700 + Math.random() * 400)
+      }, msgDelay)
+    })
   })
   return chosen.map((c) => c.e.name)
 }

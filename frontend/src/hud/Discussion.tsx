@@ -5,6 +5,7 @@ import { sendMessage } from '../state/discussion'
 import { triggerDebate, concludeDiscussion } from '../state/remote'
 import { isTyping } from '../camera/input'
 import { Btn, PanelHead } from './ui'
+import { MarkdownView } from './MarkdownView'
 
 /** Panel diskusi: muncul saat ada employee yang dipanggil. Mendukung mode Terbimbing dan Debat Otonom. */
 export function Discussion() {
@@ -213,7 +214,7 @@ export function Discussion() {
             return (
               <div key={m.id} className="flex justify-end">
                 <div className="max-w-[85%] rounded-2xl rounded-br-md bg-accent px-3 py-1.5 text-ink shadow">
-                  {m.text}
+                  <MarkdownView content={m.text} />
                 </div>
               </div>
             )
@@ -250,7 +251,7 @@ export function Discussion() {
                 )}
               </div>
               <div className="rounded-2xl rounded-tl-md bg-white/[0.07] px-3 py-1.5 text-bone/90 leading-relaxed">
-                {m.text}
+                <MarkdownView content={m.text} />
               </div>
             </div>
           )

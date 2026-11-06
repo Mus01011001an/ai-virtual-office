@@ -3,9 +3,9 @@ import { useOffice } from '../state/store'
 import { changePassword, signIn } from '../state/remote'
 import { Btn, Field, Modal, inputCls } from './ui'
 
-/** Kartu masuk layar awal — khusus administrator & anggota terdaftar. */
+/** Kartu masuk layar awal — bernuansa Game/Cyberpunk Player Login. */
 export function AuthCard() {
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
@@ -14,31 +14,84 @@ export function AuthCard() {
     e.preventDefault()
     setBusy(true); setErr('')
     try {
-      await signIn(email.trim(), password)
+      await signIn(identifier.trim(), password)
     } catch (ex) { setErr((ex as Error).message) }
     setBusy(false)
   }
 
   return (
-    <form onSubmit={submit} className="mt-8 w-[min(400px,92vw)] rounded-3xl border border-white/[0.08] bg-white/[0.05] p-6 shadow-2xl backdrop-blur-xl">
+    <form
+      onSubmit={submit}
+      className="mt-6 w-[min(420px,92vw)] rounded-3xl border border-cyan-500/30 bg-[#0d111db8] p-6 sm:p-7 shadow-[0_0_50px_rgba(0,245,212,0.15)] backdrop-blur-2xl relative overflow-hidden"
+    >
+      {/* Scanline & subtle neon glow */}
+      <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent animate-pulse" />
+
       <div className="mb-5 text-center">
-        <div className="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/10 px-3 py-1 text-xs font-semibold text-accent">
-          <span>🛡️</span> Portal Administrator & Tim
+        <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3.5 py-1 text-xs font-mono font-bold tracking-wider text-cyan-300">
+          <span className="h-2 w-2 rounded-full bg-cyan-400 animate-ping" /> PLAYER TERMINAL LOGIN
         </div>
-        <h2 className="mt-2 text-lg font-bold text-bone">Masuk ke Virtual Office</h2>
-        <p className="mt-1 text-xs text-bone/50">Silakan masukkan kredensial akun Anda untuk memulai.</p>
+        <h2 className="mt-3 text-xl font-black tracking-tight text-white font-mono uppercase">
+          KONEKSI OFFICE
+        </h2>
+        <p className="mt-1 text-xs text-white/50">Masukkan username akun Anda untuk memulai petualangan virtual.</p>
       </div>
 
-      <div className="space-y-3">
-        <Field label="Email Administrator"><input type="email" className={inputCls} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@musyan.my.id" autoFocus /></Field>
-        <Field label="Password"><input type="password" className={inputCls} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" /></Field>
+      <div className="space-y-3.5">
+        <div>
+          <label className="text-[11px] font-mono uppercase tracking-wider text-cyan-300/80 block mb-1.5 font-bold">
+            [USERNAME / ID]
+          </label>
+          <input
+            type="text"
+            className="w-full rounded-xl border border-white/10 bg-black/40 px-3.5 py-2.5 text-sm font-mono text-white placeholder-white/25 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400 transition-all"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            placeholder="mis. budi atau admin"
+            autoFocus
+            required
+          />
+        </div>
+        <div>
+          <label className="text-[11px] font-mono uppercase tracking-wider text-cyan-300/80 block mb-1.5 font-bold">
+            [PASSWORD KODE]
+          </label>
+          <input
+            type="password"
+            className="w-full rounded-xl border border-white/10 bg-black/40 px-3.5 py-2.5 text-sm font-mono text-white placeholder-white/25 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400 transition-all"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            required
+          />
+        </div>
       </div>
-      {err && <div className="mt-3 rounded-xl bg-red-400/10 px-3 py-2 text-xs text-red-300">{err}</div>}
-      <button type="submit" disabled={busy}
-        className="mt-5 h-11 w-full rounded-2xl bg-accent text-sm font-bold text-ink transition-all hover:bg-accent-2 active:scale-[0.98] disabled:opacity-60 shadow-lg shadow-accent/20">
-        {busy ? 'Memverifikasi…' : 'Masuk ke Office'}
+
+      {err && (
+        <div className="mt-3.5 rounded-xl border border-rose-500/30 bg-rose-500/15 px-3 py-2 text-xs font-mono text-rose-300">
+          ⚠️ {err}
+        </div>
+      )}
+
+      <button
+        type="submit"
+        disabled={busy}
+        className="mt-6 h-12 w-full rounded-2xl bg-gradient-to-r from-cyan-400 via-teal-400 to-emerald-400 text-sm font-black font-mono tracking-wider text-slate-950 uppercase transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-60 shadow-[0_0_25px_rgba(0,245,212,0.4)] cursor-pointer flex items-center justify-center gap-2"
+      >
+        {busy ? (
+          <span>MENYAMBUNGKAN REALM…</span>
+        ) : (
+          <>
+            <span>MASUK KANTOR</span>
+            <span className="text-base">➔</span>
+          </>
+        )}
       </button>
-      <p className="mt-4 text-center text-[11px] text-bone/40">Akses terbatas. Pembuatan akun baru dikelola oleh Administrator di dalam office.</p>
+
+      <div className="mt-4 flex items-center justify-between text-[10.5px] font-mono text-white/40">
+        <span>STATUS: SYSTEM READY</span>
+        <span>SECURE ACCESS</span>
+      </div>
     </form>
   )
 }

@@ -1,4 +1,4 @@
-import { IsIn, IsNumber, IsOptional } from 'class-validator';
+import { IsBoolean, IsIn, IsNumber, IsOptional } from 'class-validator';
 
 export class UpdatePresenceDto {
   @IsNumber()
@@ -16,4 +16,8 @@ export class UpdatePresenceDto {
   @IsOptional()
   @IsIn(['idle', 'walk', 'run'])
   anim?: 'idle' | 'walk' | 'run';
+
+  @IsOptional()
+  @IsBoolean()
+  isSpeaking?: boolean;
 }

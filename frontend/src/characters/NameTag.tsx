@@ -6,6 +6,7 @@ import * as THREE from 'three'
 import { runtime } from '../state/runtime'
 import { useOffice } from '../state/store'
 import { STATUS_META, type EmployeeStatus } from '../state/types'
+import { MarkdownView } from '../hud/MarkdownView'
 
 const v = new THREE.Vector3()
 const dir = new THREE.Vector3()
@@ -47,8 +48,14 @@ export function NameTag({ y, name, role, status, tool, progress, badge, highligh
       <Html center zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
         <div ref={el} className="nametag group flex flex-col items-center" style={{ opacity: 0 }}>
           {bubble && (
-            <div className="relative mb-1.5 w-max max-w-[260px] whitespace-normal rounded-2xl bg-[#f6f1ea] px-3 py-1.5 text-[12px] leading-snug text-[#1b1918] shadow-[0_4px_14px_rgba(0,0,0,0.4)]">
-              {bubble === '…' ? <span>• • •</span> : bubble}
+            <div className="relative mb-1.5 w-max max-w-[230px] whitespace-normal rounded-2xl bg-[#f6f1ea] px-3 py-1.5 text-[12px] leading-snug text-[#1b1918] shadow-[0_4px_14px_rgba(0,0,0,0.4)]">
+              {bubble === '…' ? (
+                <span className="font-bold tracking-widest text-[#1b1918]/60 animate-pulse">
+                  • • •
+                </span>
+              ) : (
+                <MarkdownView content={bubble} compact className="text-[#1b1918]" />
+              )}
               <span className="absolute -bottom-[5px] left-1/2 h-2.5 w-2.5 -translate-x-1/2 rotate-45 bg-[#f6f1ea]" />
             </div>
           )}

@@ -56,25 +56,35 @@ export class MembershipService {
   }
 
   /**
-   * Invite an existing user (by userId or email) to a company.
+   * Invite an existing user (by userId, email, or username) to a company.
    */
   async invite(
     companyId: string,
     inviterUserId: string,
-    dto: { userId?: string; email?: string; roleId?: string },
+    dto: { userId?: string; email?: string; username?: string; roleId?: string },
   ) {
-    const { userId, email, roleId } = dto;
+    const { userId, email, username, roleId } = dto;
     await this.assertRoleInCompany(companyId, roleId);
 
     // Find the target user
     let targetUser: any = null;
     if (userId) {
       targetUser = await this.prisma.user.findUnique({ where: { id: userId } });
+    } else if (username) {
+      targetUser = await this.prisma.user.findFirst({
+        where: {
+          OR: [
+            { username: { equals: username.trim(), mode: 'insensitive' } },
+            { name: { equals: username.trim(), mode: 'insensitive' } },
+          ],
+          deletedAt: null,
+        },
+      });
     } else if (email) {
-      targetUser = await this.prisma.user.findUnique({ where: { email } });
+      targetUser = await this.prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
     }
 
-    if (!targetUser) throw new NotFoundException('User not found');
+    if (!targetUser) throw new NotFoundException('User tidak ditemukan');
 
     // Check if already member
     const existing = await this.prisma.companyMember.findUnique({
@@ -209,28 +219,34 @@ export class MembershipService {
   }
 
   /**
-   * Owner/manager membuat akun untuk teman (password sementara) dan langsung menambahkannya ke office ini.
-   * Teman wajib mengganti password saat login pertama (User.mustChangePassword).
+   * Owner/manager membuat akun untuk teman (username + password) dan langsung menambahkannya ke office ini.
+   * Teman bisa login menggunakan username dan password sementara ini.
    */
   async createAccount(
     companyId: string,
     inviterUserId: string,
-    dto: { name: string; email: string; password: string; roleId?: string; permissions?: string[] },
+    dto: { name?: string; username?: string; email?: string; password: string; roleId?: string; permissions?: string[] },
   ) {
-    const email = dto.email?.trim().toLowerCase();
-    if (!dto.name?.trim() || !email || !dto.password || dto.password.length < 8) {
-      throw new BadRequestException('Nama, email, dan password (min. 8 karakter) wajib diisi');
+    const rawUsername = (dto.username || dto.name || '').trim().toLowerCase().replace(/[^a-z0-9_.-]/g, '');
+    const finalName = (dto.name || dto.username || 'Member').trim();
+    const finalEmail = (dto.email?.trim().toLowerCase()) || `${rawUsername || 'user_' + Date.now()}@office.local`;
+
+    if (!dto.password || dto.password.length < 6) {
+      throw new BadRequestException('Password minimal 6 karakter');
+    }
+    if (!rawUsername && !dto.email) {
+      throw new BadRequestException('Username wajib diisi');
     }
 
     let roleId = dto.roleId;
 
     // Jika admin menyertakan daftar permission khusus, buatkan custom role terisolasi untuk anggota ini
     if (dto.permissions && dto.permissions.length > 0) {
-      const customRoleName = `Custom: ${dto.name.trim()}`;
+      const customRoleName = `Custom: ${finalName}`;
       const role = await this.prisma.role.create({
         data: {
           name: customRoleName,
-          description: `Hak akses kustom untuk ${dto.name.trim()}`,
+          description: `Hak akses kustom untuk ${finalName}`,
           companyId,
           isDefault: false,
         },
@@ -243,10 +259,33 @@ export class MembershipService {
       await this.assertRoleInCompany(companyId, roleId);
     }
 
-    const exists = await this.prisma.user.findUnique({ where: { email } });
-    if (exists) throw new BadRequestException('Email sudah terdaftar — gunakan undang anggota');
-    const { user } = await auth.api.signUpEmail({ body: { email, password: dto.password, name: dto.name.trim() } });
-    await this.prisma.user.update({ where: { id: user.id }, data: { mustChangePassword: true } });
+    const exists = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          ...(rawUsername ? [{ username: { equals: rawUsername, mode: 'insensitive' as const } }] : []),
+          { email: finalEmail },
+        ],
+      },
+    });
+    if (exists) {
+      // Jika user sudah ada tapi belum di company ini, invite langsung
+      const isMember = await this.prisma.companyMember.findUnique({
+        where: { companyId_userId: { companyId, userId: exists.id } },
+      });
+      if (!isMember || !isMember.isActive) {
+        return this.invite(companyId, inviterUserId, { userId: exists.id, roleId });
+      }
+      throw new BadRequestException('Username atau email sudah terdaftar di office ini');
+    }
+
+    const { user } = await auth.api.signUpEmail({ body: { email: finalEmail, password: dto.password, name: finalName } });
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        username: rawUsername || null,
+        mustChangePassword: true,
+      },
+    });
     return this.invite(companyId, inviterUserId, { userId: user.id, roleId });
   }
 }

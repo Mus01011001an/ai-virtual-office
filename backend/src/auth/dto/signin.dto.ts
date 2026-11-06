@@ -1,13 +1,19 @@
-import { IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsOptional, IsString, MinLength } from 'class-validator';
 
 export class SignInDto {
-  @IsEmail({}, { message: 'Email tidak valid' })
-  email: string;
+  @IsOptional()
+  @IsString({ message: 'Username tidak valid' })
+  username?: string;
+
+  @IsOptional()
+  @IsString({ message: 'Email tidak valid' })
+  email?: string;
 
   @IsString()
-  @MinLength(8, { message: 'Password minimal 8 karakter' })
+  @MinLength(6, { message: 'Password minimal 6 karakter' })
   password: string;
 
   @IsOptional()
   rememberMe?: boolean;
 }
+

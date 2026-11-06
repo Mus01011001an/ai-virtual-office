@@ -10,6 +10,7 @@ import { useOffice } from './store'
 import { runtime } from './runtime'
 import { proceduralAudio } from '../audio/procedural-audio'
 import { voiceEngine } from '../audio/voice-engine'
+import { spatialVoice } from '../audio/spatial-voice'
 import type { ActivityKind, Appearance, Employee, Me, Office, TaskItem } from './types'
 
 // ---------- tipe respons backend ----------
@@ -88,8 +89,12 @@ export async function refreshMe() {
   return me
 }
 
-export async function signIn(email: string, password: string) {
-  const r = await post<{ token: string }>('/auth/signin', { email, password })
+export async function signIn(usernameOrEmail: string, password: string) {
+  const r = await post<{ token: string }>('/auth/signin', {
+    username: usernameOrEmail.trim(),
+    email: usernameOrEmail.includes('@') ? usernameOrEmail.trim() : undefined,
+    password,
+  })
   setToken(r.token)
   await refreshMe()
   await loadWorkspaces()
@@ -337,18 +342,19 @@ export function startPresenceLoop() {
     const p = runtime.player
     const now = Date.now()
     const anim = p.running ? 'run' : p.moving ? 'walk' : 'idle'
+    const isSpeaking = spatialVoice.isSpeakingLocal()
     const dist = Math.hypot(p.x - lastSentX, p.z - lastSentZ)
     const yawDiff = Math.abs(p.yaw - lastSentYaw)
     const animDiff = anim !== lastSentAnim
     const heartbeatNeeded = now - lastSentTime > 3000
 
-    if (dist > 0.05 || yawDiff > 0.05 || animDiff || heartbeatNeeded) {
+    if (dist > 0.05 || yawDiff > 0.05 || animDiff || heartbeatNeeded || isSpeaking) {
       lastSentX = p.x
       lastSentZ = p.z
       lastSentYaw = p.yaw
       lastSentAnim = anim
       lastSentTime = now
-      sendPresence({ x: p.x, y: p.y, z: p.z, yaw: p.yaw, anim }).catch(() => {})
+      sendPresence({ x: p.x, y: p.y, z: p.z, yaw: p.yaw, anim, isSpeaking }).catch(() => {})
     }
   }, 200)
 }
@@ -432,13 +438,30 @@ function openStream() {
     })
   })
 
-  // ── Phase 6: Presence & Schedule SSE Listeners ──
+  // ── Phase 6 & Phase 10: Presence & Roblox-Style Spatial Voice Signaling ──
   on<{ count: number; users: any[] }>('presence.update', ({ users }) => {
     const me = useOffice.getState().me
     const myId = me?.id
     // Saring user lain (tidak merender avatar diri sendiri sebagai remote player)
     const remotes = (users || []).filter((u) => u.userId !== myId)
     useOffice.getState().set({ remoteUsers: remotes })
+
+    // Sinkronkan peers WebRTC untuk spatial voice chat
+    spatialVoice.cleanupPeers(remotes.map((u) => u.userId))
+    if (spatialVoice.isMicActive && myId) {
+      for (const r of remotes) {
+        if (myId < r.userId) {
+          void spatialVoice.connectToPeer(r.userId)
+        }
+      }
+    }
+  })
+
+  on<{ fromUserId: string; toUserId?: string; signal: any }>('presence.voice-signal', (data) => {
+    const myId = useOffice.getState().me?.id
+    if (!data.toUserId || data.toUserId === myId) {
+      void spatialVoice.handleIncomingSignal(data.fromUserId, data.signal)
+    }
   })
 
   on<{ clock: string; timezone: string; status: any }>('schedule.transition', ({ status }) => {
@@ -568,8 +591,9 @@ export async function listMembers(): Promise<ApiMember[]> {
 }
 
 export async function createMemberAccount(payload: {
-  name: string
-  email: string
+  name?: string
+  username?: string
+  email?: string
   password: string
   roleId?: string
   permissions?: string[]
@@ -695,4 +719,23 @@ export async function compactAgentContext(
   reason?: string,
 ): Promise<{ success: boolean; message: string; newSessionIndex: number }> {
   return post(`/office/workstation/context/${employeeId}/compact`, { reason })
+}
+
+export interface SandboxResult {
+  success: boolean
+  stdout: string
+  stderr: string
+  error?: string
+  executionTimeMs: number
+}
+
+export async function executeSandboxCode(
+  language: 'javascript' | 'python',
+  code: string,
+): Promise<SandboxResult> {
+  return post<SandboxResult>('/office/sandbox/execute', {
+    language,
+    code,
+    timeoutMs: 5000,
+  })
 }

@@ -6,11 +6,16 @@ export class DesignatedOwnerDto {
   @MinLength(1, { message: 'Nama owner wajib diisi' })
   name: string;
 
-  @IsEmail({}, { message: 'Email owner tidak valid' })
-  email: string;
+  @IsOptional()
+  @IsString()
+  username?: string;
+
+  @IsOptional()
+  @IsString()
+  email?: string;
 
   @IsString()
-  @MinLength(8, { message: 'Password owner minimal 8 karakter' })
+  @MinLength(6, { message: 'Password owner minimal 6 karakter' })
   password: string;
 }
 

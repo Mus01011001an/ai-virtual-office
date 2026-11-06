@@ -51,18 +51,31 @@ export class AgentMemoryService {
     });
     if (!employee) throw new NotFoundException('Employee tidak ditemukan');
 
-    // Ambil total token penggunaan sesi aktif dari UsageRecord
+    // Cari tanggal mulai sesi aktif (berdasarkan memory checkpoint sesi terakhir)
+    const lastSessionMemory = await this.prisma.agentSessionMemory.findFirst({
+      where: { employeeId, companyId },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    });
+
+    const sessionStartDate = lastSessionMemory ? lastSessionMemory.createdAt : employee.createdAt;
+
+    // Ambil total token penggunaan HANYA dari sesi aktif saat ini
     const usage = await this.prisma.usageRecord.aggregate({
       where: {
         employeeId,
         companyId,
+        createdAt: { gte: sessionStartDate },
       },
       _sum: {
         totalTokens: true,
       },
     });
 
-    const totalTokensUsed = usage._sum.totalTokens || (employee.systemPrompt.length / 4);
+    // Token dasar dari system prompt & persona agent (~1,000 - 2,000 token)
+    const basePromptTokens = Math.round(employee.systemPrompt.length / 4);
+    const sessionTokens = usage._sum.totalTokens || 0;
+    const totalTokensUsed = basePromptTokens + sessionTokens;
     const maxTokens = this.DEFAULT_MAX_TOKENS;
     const usagePercentage = Math.min(100, Math.round((totalTokensUsed / maxTokens) * 100));
 
@@ -71,7 +84,17 @@ export class AgentMemoryService {
     else if (usagePercentage >= 75) statusLevel = 'HIGH';
     else if (usagePercentage >= 45) statusLevel = 'MODERATE';
 
-    const shouldReset = usagePercentage >= 75 || employee.tasks.filter((t) => t.status === 'COMPLETED').length >= 15;
+    // Hitung tugas selesai di sesi ini
+    const completedTasksCount = await this.prisma.task.count({
+      where: {
+        employeeId,
+        companyId,
+        status: 'COMPLETED',
+        createdAt: { gte: sessionStartDate },
+      },
+    });
+
+    const shouldReset = usagePercentage >= 75 || completedTasksCount >= 15;
 
     // Task yang sedang aktif dikerjakan
     const activeTask = employee.tasks.find((t) => t.status === 'EXECUTING' || t.status === 'WAITING') || null;

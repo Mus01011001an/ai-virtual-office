@@ -18,6 +18,8 @@ model OfficeProfile {
   standupTime        String         @default("09:00")
   autoStandupEnabled Boolean        @default(true)
   proactiveEnabled   Boolean        @default(true)
+  voiceRadius        Float          @default(10.0)
+  voiceProximityEnabled Boolean     @default(true)
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
   company            Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)

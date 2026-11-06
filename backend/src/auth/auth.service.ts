@@ -29,15 +29,46 @@ export class AuthService {
   }
 
   async signIn(body: SignInDto) {
+    const rawIdentifier = (body.username || body.email || '').trim();
+    if (!rawIdentifier) {
+      throw new BadRequestException('Username atau email wajib diisi');
+    }
+
+    let targetEmail = rawIdentifier.toLowerCase();
+    if (!rawIdentifier.includes('@')) {
+      // Lookup user by username, name, or local office email prefix
+      const matched = await this.prisma.user.findFirst({
+        where: {
+          OR: [
+            { username: { equals: rawIdentifier, mode: 'insensitive' } },
+            { name: { equals: rawIdentifier, mode: 'insensitive' } },
+            { email: { startsWith: `${rawIdentifier.toLowerCase()}@`, mode: 'insensitive' } },
+          ],
+          deletedAt: null,
+        },
+        select: { email: true, username: true },
+      });
+      if (!matched?.email) {
+        throw new BadRequestException('Username atau password salah');
+      }
+      targetEmail = matched.email.toLowerCase();
+    }
+
     let signInResult: any;
     try {
       signInResult = await auth.api.signInEmail({
-        body: { email: body.email.toLowerCase(), password: body.password, rememberMe: body.rememberMe },
+        body: { email: targetEmail, password: body.password, rememberMe: body.rememberMe },
         returnHeaders: true,
       });
     } catch (error: any) {
-      if (error.body?.code === 'INVALID_EMAIL_OR_PASSWORD' || error.status === 401 || error.status === 400) {
-        throw new BadRequestException('Email atau password salah');
+      if (
+        error.body?.code === 'INVALID_EMAIL_OR_PASSWORD' ||
+        error.status === 401 ||
+        error.status === 400 ||
+        error.message?.includes('Invalid email') ||
+        error.body?.message?.includes('Invalid email')
+      ) {
+        throw new BadRequestException('Username/email atau password salah');
       }
       throw error;
     }
@@ -55,7 +86,7 @@ export class AuthService {
     // Pulihkan workspace (office) terakhir ke sesi baru
     const dbUser = await this.prisma.user.findUnique({
       where: { id: user.id },
-      select: { lastActiveCompanyId: true, companyId: true, mustChangePassword: true },
+      select: { username: true, lastActiveCompanyId: true, companyId: true, mustChangePassword: true },
     });
     const memberships = await this.prisma.companyMember.findMany({
       where: { userId: user.id, isActive: true, invitationStatus: 'accepted', company: { deletedAt: null } },
@@ -80,6 +111,7 @@ export class AuthService {
       token,
       id: user.id,
       name: user.name,
+      username: dbUser?.username || user.name,
       email: user.email,
       activeCompanyId: targetCompanyId,
       mustChangePassword: dbUser?.mustChangePassword ?? false,

@@ -11,6 +11,7 @@ export interface UserPresenceData {
   z: number;
   yaw: number;
   anim: 'idle' | 'walk' | 'run';
+  isSpeaking?: boolean;
   lastSeen: number;
 }
 
@@ -57,6 +58,7 @@ export class PresenceService implements OnModuleDestroy {
       z: clampedZ,
       yaw: dto.yaw,
       anim: dto.anim || 'idle',
+      isSpeaking: !!dto.isSpeaking,
       lastSeen: now,
     };
 
@@ -73,6 +75,15 @@ export class PresenceService implements OnModuleDestroy {
     return {
       onlineCount: onlineList.length,
     };
+  }
+
+  relayVoiceSignal(companyId: string, fromUserId: string, payload: { toUserId?: string; signal: any }) {
+    this.events.emit(companyId, 'presence.voice-signal', {
+      fromUserId,
+      toUserId: payload.toUserId,
+      signal: payload.signal,
+    });
+    return { success: true };
   }
 
   getOnlineUsers(companyId: string): UserPresenceData[] {

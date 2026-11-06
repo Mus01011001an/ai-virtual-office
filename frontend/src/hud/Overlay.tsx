@@ -8,6 +8,7 @@ import { enterOffice, signOut } from '../state/remote'
 import { AuthCard } from './Auth'
 import { speechRecognizer } from '../audio/speech-recognition'
 import { isTouchOrIPad } from '../camera/CameraRig'
+import { GameTitleScene } from './game/GameTitleScene'
 
 const anyPanel = (s: ReturnType<typeof useOffice.getState>) =>
   !!s.workstationId || s.newOfficeOpen || s.createEmployeeOpen
@@ -129,7 +130,36 @@ export function Hotkeys() {
       if (e.code === 'Escape') {
         if (st.workstationId) return st.set({ workstationId: null })
         if (st.newOfficeOpen || st.createEmployeeOpen) return st.set({ newOfficeOpen: false, createEmployeeOpen: false })
-        return st.set({ selectedId: null, settingsOpen: false, directoryOpen: false })
+        if (
+          st.selectedId ||
+          st.settingsOpen ||
+          st.directoryOpen ||
+          st.membersOpen ||
+          st.mcpOpen ||
+          st.approvalOpen ||
+          st.scheduleConfigOpen ||
+          st.integrationsOpen ||
+          st.audioSettingsOpen ||
+          st.standupOpen ||
+          st.ideModalOpen
+        ) {
+          return st.set({
+            selectedId: null,
+            settingsOpen: false,
+            directoryOpen: false,
+            membersOpen: false,
+            mcpOpen: false,
+            approvalOpen: false,
+            scheduleConfigOpen: false,
+            integrationsOpen: false,
+            audioSettingsOpen: false,
+            standupOpen: false,
+            ideModalOpen: false,
+          })
+        }
+        if (st.entered) {
+          return st.set({ escapeMenuOpen: !st.escapeMenuOpen })
+        }
       }
       if (!st.entered || anyPanel(st)) return
       switch (e.code) {
@@ -226,80 +256,136 @@ export function StartScreen() {
   const { progress } = useProgress()
   const [busy, setBusy] = useState<string | null>(null)
   const [err, setErr] = useState('')
-  const hour = new Date().getHours()
-  const greet = hour < 11 ? 'Selamat pagi' : hour < 15 ? 'Selamat siang' : hour < 19 ? 'Selamat sore' : 'Selamat malam'
+
   return (
-    <div className="absolute inset-0 z-50 overflow-hidden text-bone"
-      style={{ background: 'radial-gradient(1200px 700px at 85% 15%, #5b3a6b 0%, transparent 60%), radial-gradient(900px 600px at 10% 100%, #7a4a2a 0%, transparent 55%), linear-gradient(160deg, #221c2b 0%, #1b1918 60%)' }}>
-      {/* lampu-lampu bokeh hangat */}
-      {[[12, 18, 140, '#f4a259'], [78, 70, 220, '#e76f51'], [62, 22, 90, '#ffd166'], [30, 80, 160, '#7fd1b9']].map(([x, y, r, c], i) => (
-        <div key={i} className="floaty pointer-events-none absolute rounded-full opacity-25 blur-3xl"
-          style={{ left: `${x}%`, top: `${y}%`, width: r as number, height: r as number, background: c as string, animationDelay: `${i * 1.3}s` }} />
-      ))}
+    <div className="absolute inset-0 z-50 overflow-hidden text-bone bg-[#07080d]">
+      {/* 3D Realtime Orbiting Cyber Island Scene */}
+      <GameTitleScene />
 
-      <div className="relative mx-auto flex h-full max-w-5xl items-center gap-12 px-8">
-        <div className="flex-1">
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-white/[0.07] px-3 py-1 text-[12px] text-bone/70">
-            <span className="h-1.5 w-1.5 rounded-full bg-mint" /> Virtual AI Office
-          </div>
-          <h1 className="display text-[clamp(36px,5vw,56px)] leading-[1.05]">
-            {greet} 👋<br /><span className="text-bone/60">Mau ke kantor mana hari ini?</span>
-          </h1>
-          <p className="mt-4 max-w-md text-[14px] leading-relaxed text-bone/55">
-            Jalan-jalan di kantormu, sapa tim AI, kumpulkan mereka untuk diskusi, dan lihat pekerjaan mereka langsung di layar.
-          </p>
+      {/* Cyber Grid Lines Overlay & Vignette */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,#07080deb_85%)]" />
 
-          {!st.authChecked && <div className="mt-8 text-sm text-bone/50">Menghubungkan ke server…</div>}
-          {st.authChecked && !st.me && <AuthCard />}
-          {st.me && (<>
-          <div className="mt-6 flex items-center gap-2 text-[12px] text-bone/55">
-            Masuk sebagai <b className="text-bone/80">{st.me.name}</b>
-            <button onClick={() => void signOut()} className="rounded-full px-2 py-0.5 text-bone/50 hover:bg-white/10 hover:text-bone">Keluar</button>
+      <div className="relative mx-auto flex h-full max-w-6xl flex-col justify-between p-6 sm:p-10 z-10 overflow-y-auto">
+        {/* Header Bar */}
+        <div className="flex items-center justify-between">
+          <div className="inline-flex items-center gap-2.5 rounded-full border border-cyan-400/25 bg-black/50 px-3.5 py-1 text-xs font-mono font-bold tracking-wider text-cyan-300 backdrop-blur-md">
+            <span className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
+            <span>AI VIRTUAL OFFICE SYSTEM v2.0</span>
           </div>
-          {err && <div className="mt-3 max-w-xl rounded-xl bg-red-400/10 px-3 py-2 text-xs text-red-300">{err}</div>}
-          <div className="mt-4 grid max-w-xl gap-3 sm:grid-cols-2">
-            {st.offices.map((o) => (
-              <button key={o.id} disabled={!!busy} onClick={async () => {
-                runtime.player.x = 0; setBusy(o.id); setErr('')
-                try { await enterOffice(o.id) } catch (e) { setErr((e as Error).message) }
-                setBusy(null)
-              }}
-                className="group rounded-3xl border border-white/[0.08] bg-white/[0.05] p-5 text-left transition hover:-translate-y-0.5 hover:border-accent/50 hover:bg-white/[0.08]">
-                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-accent to-[#e76f51] text-xl shadow-lg">
-                  {o.template === 'demo-team' ? '🏢' : '🏠'}
-                </div>
-                <div className="display text-[17px]">{o.name}</div>
-                <div className="mt-1 text-[12px] text-bone/50">{o.template === 'demo-team' ? 'Tim demo + ' : ''}{o.employeeCount ?? 0} employee · {o.role ?? '—'} · {o.timezone}</div>
-                <div className="mt-4 text-[12.5px] font-semibold text-accent opacity-70 transition group-hover:opacity-100">{busy === o.id ? 'Masuk…' : 'Masuk kantor →'}</div>
+
+          {st.me && (
+            <div className="flex items-center gap-3 rounded-full border border-white/10 bg-black/60 px-4 py-1.5 backdrop-blur-md">
+              <span className="text-xs font-mono text-white/50">OPERATOR:</span>
+              <span className="text-xs font-mono font-bold text-cyan-300">{st.me.name}</span>
+              <button
+                onClick={() => void signOut()}
+                className="ml-2 rounded-full border border-white/20 px-2.5 py-0.5 text-[11px] font-mono text-white/70 hover:border-rose-400 hover:text-rose-300 transition-colors"
+              >
+                LOGOUT
               </button>
-            ))}
-            <button onClick={() => st.set({ newOfficeOpen: true })}
-              className="flex flex-col items-start justify-center rounded-3xl border border-dashed border-white/15 p-5 text-left text-bone/60 transition hover:border-accent/60 hover:text-bone">
-              <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-white/[0.07] text-xl">＋</div>
-              <div className="display text-[16px]">Sesi baru</div>
-              <div className="mt-1 text-[12px] text-bone/45">Buat kantor terpisah</div>
-            </button>
-          </div>
-          </>)}
-
-          <div className="mt-8 text-[11px] text-bone/35">
-            Data tersimpan di server · multiplayer menyusul (Phase 5){progress < 100 && ` · memuat aset ${Math.round(progress)}%`}
-          </div>
+            </div>
+          )}
         </div>
 
-        {/* ilustrasi kecil: kartu "tim" */}
-        <div className="hidden w-[300px] shrink-0 lg:block">
-          <div className="floaty rounded-[28px] border border-white/[0.08] bg-white/[0.05] p-5 shadow-2xl">
-            <div className="mb-3 flex items-center justify-between text-[12px] text-bone/60"><span>Tim hari ini</span><span>☕ 09:00–18:00</span></div>
-            {[['Alex', 'DevOps', '#22c55e', 'Sedang deploy'], ['Sarah', 'Frontend', '#a855f7', 'Berpikir…'], ['Nadia', 'Project Manager', '#3b82f6', 'Meeting'], ['Dewi', 'UI/UX', '#fb923c', 'Istirahat']].map(([n, r, c, s]) => (
-              <div key={n} className="flex items-center gap-3 rounded-2xl px-2 py-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-sm font-bold">{n.slice(0, 1)}</div>
-                <div className="flex-1"><div className="text-[13px] font-semibold">{n}</div><div className="text-[11px] text-bone/45">{r}</div></div>
-                <span className="flex items-center gap-1.5 rounded-full bg-white/[0.06] px-2 py-0.5 text-[10.5px] text-bone/70"><span className="h-1.5 w-1.5 rounded-full" style={{ background: c }} />{s}</span>
-              </div>
-            ))}
-            <div className="mt-2 rounded-2xl bg-accent/15 px-3 py-2 text-[11.5px] text-accent">Ilustrasi · data tim demo</div>
+        {/* Center Hero & Login or World Slots */}
+        <div className="my-auto py-6 flex flex-col items-center text-center">
+          <div className="mb-2 text-xs font-mono tracking-[0.3em] uppercase text-cyan-400/90 drop-shadow-[0_0_12px_rgba(0,245,212,0.6)]">
+            ✦ AUTONOMOUS MULTI-AGENT VIRTUAL ENVIRONMENT ✦
           </div>
+          <h1 className="font-mono font-black text-[clamp(32px,5.5vw,58px)] leading-[1.05] tracking-tight uppercase text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-100 to-cyan-300 drop-shadow-[0_4px_30px_rgba(0,245,212,0.35)]">
+            VIRTUAL OFFICE
+          </h1>
+          <p className="mt-2.5 max-w-lg text-xs sm:text-sm font-sans text-white/60 leading-relaxed">
+            Kantor simulasi 3D interaktif. Sapa dan bimbing agen AI, jalankan rapat strategi, dan pantau kemajuan kerja tim secara real-time.
+          </p>
+
+          {!st.authChecked && (
+            <div className="mt-8 flex items-center gap-2 font-mono text-sm text-cyan-300/70 animate-pulse">
+              <span>INITIALIZING SYSTEM PROTOCOLS…</span>
+            </div>
+          )}
+
+          {st.authChecked && !st.me && <AuthCard />}
+
+          {st.authChecked && st.me && (
+            <div className="mt-6 w-full max-w-2xl">
+              <div className="mb-3 flex items-center justify-between text-xs font-mono">
+                <span className="text-cyan-400 font-bold uppercase tracking-wider">
+                  SELECT REALM / PILIH DUNIA KANTOR:
+                </span>
+                <span className="text-white/40">{st.offices.length} REALMS READY</span>
+              </div>
+
+              {err && (
+                <div className="mb-4 rounded-xl border border-rose-500/30 bg-rose-500/15 p-3 text-xs font-mono text-rose-300">
+                  ⚠️ {err}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {st.offices.map((o, idx) => (
+                  <button
+                    key={o.id}
+                    disabled={!!busy}
+                    onClick={async () => {
+                      runtime.player.x = 0
+                      setBusy(o.id)
+                      setErr('')
+                      try {
+                        await enterOffice(o.id)
+                      } catch (e) {
+                        setErr((e as Error).message)
+                      }
+                      setBusy(null)
+                    }}
+                    className="group relative flex flex-col justify-between rounded-2xl border border-white/10 bg-black/60 p-4 sm:p-5 text-left backdrop-blur-xl transition-all hover:border-cyan-400 hover:bg-cyan-950/20 hover:shadow-[0_0_25px_rgba(0,245,212,0.2)] active:scale-[0.98] cursor-pointer"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between text-[11px] font-mono text-white/40 mb-2">
+                        <span>SLOT {String(idx + 1).padStart(2, '0')}</span>
+                        <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/30">
+                          ONLINE
+                        </span>
+                      </div>
+                      <div className="text-base font-bold font-mono text-white group-hover:text-cyan-300 transition-colors">
+                        {o.name}
+                      </div>
+                      <div className="mt-1 text-xs text-white/50">
+                        {o.template === 'demo-team' ? 'Tim Demo · ' : ''}
+                        {o.employeeCount ?? 0} AI Agents · {o.timezone}
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-between pt-2 border-t border-white/[0.06] text-xs font-mono font-bold text-cyan-400 group-hover:translate-x-1 transition-transform">
+                      <span>{busy === o.id ? 'CONNECTING…' : 'ENTER REALM'}</span>
+                      <span>➔</span>
+                    </div>
+                  </button>
+                ))}
+
+                <button
+                  onClick={() => st.set({ newOfficeOpen: true })}
+                  className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/20 bg-black/30 p-5 text-center text-white/60 hover:border-cyan-400 hover:text-cyan-300 hover:bg-cyan-950/15 backdrop-blur-xl transition-all cursor-pointer min-h-[140px]"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-xl font-bold mb-2">
+                    ＋
+                  </div>
+                  <div className="font-mono text-xs font-bold uppercase tracking-wider">
+                    CREATE NEW REALM
+                  </div>
+                  <div className="text-[11px] text-white/40 mt-1">
+                    Buat ruang kantor terpisah
+                  </div>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer info */}
+        <div className="flex items-center justify-between text-[11px] font-mono text-white/35 pt-4">
+          <span>HOSTED ON PRIVATE ARM64 INSTANCE</span>
+          <span>{progress < 100 ? `LOADING ASSETS: ${Math.round(progress)}%` : 'SYSTEM: ALL MODULES READY'}</span>
         </div>
       </div>
     </div>

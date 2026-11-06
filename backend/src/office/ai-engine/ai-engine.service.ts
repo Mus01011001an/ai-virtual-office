@@ -49,11 +49,18 @@ export class AiEngineService {
     const apiKey = decryptSecret(provider.apiKeyEnc, API_KEY_PURPOSE) || '';
     const adapter = this.adapterRegistry.getAdapter(provider.type);
 
+    const communicationGuidelines =
+      `Gaya Komunikasi Manusiawi & Format Obrolan:\n` +
+      `- Berbicaralah seperti rekan kerja manusia sungguhan (hangat, cerdas, santai, solutif). DILARANG bergaya bot kaku ("Sebagai asisten AI...").\n` +
+      `- BALON CHAT PENDEK: Tulis dalam kalimat ringkas (maksimal 1-3 kalimat pendek per pesan, ~140-180 karakter). Jangan kirim dinding teks panjang!\n` +
+      `- BISA BALAS LEBIH DARI 1X: Jika memiliki beberapa pemikiran atau penjelasan bertahap, pisahkan pesan dengan pembatas '---' di baris baru agar sistem mengirimkannya sebagai beberapa balon chat terpisah.\n` +
+      `- MARKDOWN RAPI: Gunakan **bold**, *italic*, dan \`code\` secukupnya secara bersih dan proporsional.`;
+
     const systemPrompt =
       `Anda adalah ${employee.name}, ${employee.role} di departemen ${employee.department}.\n` +
       `Keahlian Anda: ${employee.skills.join(', ')}.\n` +
       `${employee.systemPrompt || ''}\n` +
-      `Jawablah secara ringkas, profesional, to-the-point, dan solutif.`;
+      `${communicationGuidelines}`;
 
     const messages: ChatMessage[] = [
       { role: 'system', content: systemPrompt },

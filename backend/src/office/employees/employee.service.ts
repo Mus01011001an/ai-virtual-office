@@ -4,6 +4,7 @@ import { DatabaseService } from 'src/database/database.service';
 import { ActivityService } from 'src/system/activity/activity.service';
 import { OfficeEventsService } from '../realtime/office-events.service';
 import { AiEngineService } from '../ai-engine/ai-engine.service';
+import { AgentBundleService } from '../ai-engine/agent-bundle.service';
 import { CreateEmployeeDto, UpdateEmployeeDto } from './dto/employee.dto';
 
 /** Jumlah meja di layout 3D (frontend office/layout.ts → DESKS). */
@@ -22,6 +23,7 @@ export class EmployeeService {
     private readonly activity: ActivityService,
     private readonly events: OfficeEventsService,
     private readonly aiEngine: AiEngineService,
+    private readonly agentBundle: AgentBundleService,
   ) {}
 
   async findAll(companyId: string, p: { q?: string; deleted?: boolean; page?: number; limit?: number }) {
@@ -83,8 +85,19 @@ export class EmployeeService {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') throw new BadRequestException('Meja sudah dipakai, coba lagi');
       throw err;
     }
+
+    // MANDATORY DISCIPLINE: Auto-seed Antigravity humanized virtual bundle & compile system prompt
+    try {
+      await this.agentBundle.seedDefaultBundle(companyId, emp);
+      const compiledPrompt = await this.agentBundle.compilePrompt(companyId, emp.id);
+      emp = { ...emp, systemPrompt: compiledPrompt };
+    } catch (bundleErr: any) {
+      // Fallback log jika bundle seeding gagal tanpa membatalkan pembuatan employee
+      console.warn(`[EmployeeService] Gagal auto-seed bundle untuk ${emp.name}:`, bundleErr?.message);
+    }
+
     await this.feed(companyId, emp.id, 'info', `Bergabung sebagai ${emp.role}. Meja #${deskIndex + 1}${m.model ? ` · model ${m.provider}/${m.model}` : ''}.`);
-    await this.feed(companyId, emp.id, 'info', 'Siap menerima instruksi dan menyelesaikan tugas mandiri.');
+    await this.feed(companyId, emp.id, 'info', 'Siap berkolaborasi dan menyelesaikan tugas mandiri.');
     await this.activity.log(companyId, userId).action('CREATE_EMPLOYEE').subject('Employee', emp.id).description(`Merekrut ${emp.name}`).save();
     this.events.emit(companyId, 'employee.created', emp);
     return emp;
@@ -180,5 +193,31 @@ export class EmployeeService {
     await this.prisma.employee.delete({ where: { id } });
     await this.activity.log(companyId, userId).action('PERMANENT_DELETE_EMPLOYEE').subject('Employee', id).description(`Hapus permanen ${emp.name}`).save();
     return { success: true, message: 'Employee dihapus permanen', data: { id } };
+  }
+
+  /**
+   * Retrofit seluruh karyawan aktif ke standar komunikasi manusiawi baru
+   */
+  async syncAllAgentsToHumanStandard(companyId: string) {
+    const employees = await this.prisma.employee.findMany({
+      where: { companyId, deletedAt: null },
+    });
+
+    let count = 0;
+    for (const emp of employees) {
+      try {
+        await this.agentBundle.seedDefaultBundle(companyId, emp);
+        await this.agentBundle.compilePrompt(companyId, emp.id);
+        count++;
+      } catch (err: any) {
+        console.warn(`[EmployeeService] Gagal menyinkronkan agen ${emp.name}:`, err.message);
+      }
+    }
+
+    return {
+      success: true,
+      count,
+      message: `${count} agen berhasil disinkronkan ke standar komunikasi manusiawi & multi-bubble`,
+    };
   }
 }

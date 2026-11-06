@@ -40,4 +40,14 @@ export class PresenceController {
     this.presenceService.removeUser(companyId, user.id);
     return { success: true };
   }
+
+  @Post('voice-signal')
+  @ApiOperation({ summary: 'Relay WebRTC voice signaling (offer, answer, ice-candidate) antar peer' })
+  relayVoiceSignal(
+    @ActiveCompany() companyId: string,
+    @ActiveUser() user: any,
+    @Body() body: { toUserId?: string; signal: any },
+  ) {
+    return this.presenceService.relayVoiceSignal(companyId, user.id, body);
+  }
 }

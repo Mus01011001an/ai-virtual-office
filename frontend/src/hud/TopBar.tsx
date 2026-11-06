@@ -192,6 +192,16 @@ export function TopBar() {
           </span>
         </button>
 
+        {/* Tombol Undang Teman Langsung */}
+        <button
+          onClick={() => set({ membersOpen: true })}
+          title="Undang rekan kerja / buat akun teman baru dengan username & password"
+          className="panel-soft flex h-9 items-center gap-1.5 rounded-full px-2.5 sm:px-3 text-[12px] font-semibold text-accent hover:bg-accent/10 border border-accent/30 transition-colors"
+        >
+          <span>👥</span>
+          <span className="hidden sm:inline">+ Teman</span>
+        </button>
+
         {/* Action Hub Popover (Semua fitur kantor rapi terpadu di satu menu) */}
         <div ref={menuRef} className="relative">
           <button

@@ -1,14 +1,24 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { IsIn, IsNumber, IsOptional, IsString } from 'class-validator';
 import { ActiveCompany } from 'src/common/decorators/active-company.decorator';
 import { RequiresCompany } from 'src/common/decorators/requires-company.decorator';
 import { RequiresCompanyGuard } from 'src/common/guards/requires-company.guard';
 import { SecureRunnerService } from './secure-runner.service';
 
 export class ExecuteCodeDto {
+  @IsString()
+  @IsIn(['javascript', 'typescript', 'python'])
   language: 'javascript' | 'typescript' | 'python';
+
+  @IsString()
   code: string;
+
+  @IsOptional()
+  @IsNumber()
   timeoutMs?: number;
+
+  @IsOptional()
   inputPayload?: Record<string, unknown>;
 }
 

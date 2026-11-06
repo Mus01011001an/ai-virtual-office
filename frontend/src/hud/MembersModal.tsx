@@ -25,6 +25,7 @@ export function MembersModal() {
   const [notice, setNotice] = useState('')
 
   // Form states
+  const [username, setUsername] = useState('')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -82,8 +83,12 @@ export function MembersModal() {
     setErr('')
     setNotice('')
     try {
-      if (!name.trim() || !email.trim() || password.length < 8) {
-        throw new Error('Nama, email, dan password minimal 8 karakter wajib diisi')
+      const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_.-]/g, '')
+      if (!cleanUsername) {
+        throw new Error('Username wajib diisi (hanya huruf, angka, _, -)')
+      }
+      if (!password || password.length < 6) {
+        throw new Error('Password minimal 6 karakter')
       }
 
       const activePermKeys = Object.entries(selectedPerms)
@@ -91,14 +96,16 @@ export function MembersModal() {
         .map(([k]) => k)
 
       await createMemberAccount({
-        name: name.trim(),
-        email: email.trim(),
+        username: cleanUsername,
+        name: name.trim() || cleanUsername,
+        email: email.trim() || undefined,
         password,
         roleId: accessMode === 'preset' ? selectedRoleId : undefined,
         permissions: accessMode === 'custom' ? activePermKeys : undefined,
       })
 
-      setNotice(`Akun ${email.trim()} berhasil dibuat! Anggota dapat login dan wajib mengganti password.`)
+      setNotice(`Akun @${cleanUsername} berhasil dibuat! Teman Anda sekarang bisa langsung masuk menggunakan username "@${cleanUsername}" dan password tersebut.`)
+      setUsername('')
       setName('')
       setEmail('')
       setPassword('')
@@ -129,12 +136,12 @@ export function MembersModal() {
   }, {})
 
   return (
-    <Modal title="Kelola Anggota & Hak Akses" onClose={close}>
+    <Modal title="Undang Teman & Kelola Hak Akses" onClose={close}>
       <div className="space-y-4 p-5 text-sm max-h-[85vh] overflow-y-auto w-[min(650px,94vw)]">
         <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
           <div>
             <p className="text-xs text-bone/55">
-              Atur hak akses rekan kerja agar tidak dapat bertindak sembarangan di dalam virtual office.
+              Buatkan akun untuk teman/rekan kerja dengan username & password, serta batasi hak aksesnya.
             </p>
           </div>
           <Btn
@@ -146,7 +153,7 @@ export function MembersModal() {
               setNotice('')
             }}
           >
-            {showForm ? 'Batal' : '+ Buat Akun Anggota'}
+            {showForm ? 'Tutup Formulir' : '+ Buat Akun Teman'}
           </Btn>
         </div>
 
@@ -169,42 +176,52 @@ export function MembersModal() {
           >
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-bold text-accent uppercase tracking-wider">
-                👤 Formulir Akun Baru & Batasan Akses
+                👤 Formulir Tambah Rekan / Akun Teman
               </h4>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="Nama Anggota">
+              <Field label="Username Masuk *">
+                <input
+                  className={inputCls}
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="mis. budi (tanpa spasi)"
+                  required
+                  autoFocus
+                />
+              </Field>
+              <Field label="Nama Lengkap (Opsional)">
                 <input
                   className={inputCls}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="mis. Budi Santoso"
+                />
+              </Field>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Field label="Password Masuk *">
+                <input
+                  type="password"
+                  className={inputCls}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Minimal 6 karakter"
                   required
                 />
               </Field>
-              <Field label="Email">
+              <Field label="Email (Opsional)">
                 <input
                   type="email"
                   className={inputCls}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="budi@kantor.com"
-                  required
+                  placeholder="budi@kantor.com (opsional)"
                 />
               </Field>
             </div>
-
-            <Field label="Password Sementara">
-              <input
-                type="password"
-                className={inputCls}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Minimal 8 karakter"
-                required
-              />
-            </Field>
 
             <div className="pt-2">
               <label className="text-xs font-semibold text-bone/80 block mb-2">Model Hak Akses:</label>
