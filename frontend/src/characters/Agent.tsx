@@ -120,7 +120,7 @@ export function Agent({ id }: { id: string }) {
     root.current.position.set(n.x, n.y, n.z)
     root.current.rotation.y = n.yaw
     const rt = runtime.agents.get(id)
-    if (rt) { rt.x = n.x; rt.y = n.y; rt.z = n.z; rt.visible = !hidden } else runtime.agents.set(id, { x: n.x, y: n.y, z: n.z, visible: !hidden })
+    if (rt) { rt.x = n.x; rt.y = n.y; rt.z = n.z; rt.yaw = n.yaw; rt.visible = !hidden } else runtime.agents.set(id, { x: n.x, y: n.y, z: n.z, yaw: n.yaw, visible: !hidden })
   })
 
   const meta = STATUS_META[e.status]

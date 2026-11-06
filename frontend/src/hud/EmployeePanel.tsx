@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useOffice } from '../state/store'
 import { Avatar, Btn, CloseBtn, DemoBadge, StatusPill, fmtTime, inputCls } from './ui'
 import { toggleSummon } from '../state/gather'
@@ -18,6 +18,14 @@ export function EmployeePanel() {
   const [text, setText] = useState('')
   const [asTask, setAsTask] = useState(true)
   const [err, setErr] = useState('')
+  const activityScrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (activityScrollRef.current) {
+      activityScrollRef.current.scrollTop = activityScrollRef.current.scrollHeight
+    }
+  }, [acts?.length])
+
   if (!e) return null
   const st = useOffice.getState()
   const done = tasks.filter((t) => t.employeeId === e.id && t.status === 'COMPLETED').length
@@ -68,13 +76,21 @@ export function EmployeePanel() {
         {e.skills.length > 0 && <div className="flex flex-wrap gap-1">{e.skills.map((s) => <span key={s} className="rounded-full bg-white/[0.07] px-2 py-0.5 text-[11px] text-bone/75">{s}</span>)}</div>}
 
         <div>
-          <div className="label mb-1.5">Aktivitas</div>
-          <div className="space-y-1 font-mono text-[11px] leading-snug">
-            {(acts ?? []).slice(-6).reverse().map((a) => (
-              <div key={a.id} className="flex gap-2"><span className="shrink-0 text-bone/30">{fmtTime(a.at)}</span>
-                <span className={KIND_CLS[a.kind] ?? 'text-bone/75'}>{a.text}</span></div>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="label">Aktivitas Terkini</span>
+            <span className="text-[10px] text-bone/40 font-mono">Terbaru di Bawah ↓</span>
+          </div>
+          <div
+            ref={activityScrollRef}
+            className="space-y-1.5 font-mono text-[11px] leading-snug max-h-[145px] overflow-y-auto pr-1 rounded-xl bg-black/25 p-2.5 border border-white/[0.05]"
+          >
+            {(acts ?? []).slice(-12).map((a) => (
+              <div key={a.id} className="flex gap-2 items-start py-0.5 border-b border-white/[0.02] last:border-0 hover:bg-white/[0.02] px-1 rounded transition-colors">
+                <span className="shrink-0 text-bone/35 text-[10px] mt-0.5">{fmtTime(a.at)}</span>
+                <span className={`${KIND_CLS[a.kind] ?? 'text-bone/75'} break-words flex-1`}>{a.text}</span>
+              </div>
             ))}
-            {!acts?.length && <div className="text-bone/35">Belum ada aktivitas.</div>}
+            {!acts?.length && <div className="text-bone/35 py-3 text-center text-xs">Belum ada aktivitas terekam hari ini.</div>}
           </div>
         </div>
       </div>

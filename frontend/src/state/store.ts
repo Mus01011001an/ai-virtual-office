@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware'
 import type { ActivityEvent, Ambience, CameraMode, ChatMsg, Employee, Me, Office, OfficeSchedule, Quality, RemoteUserData, ShiftState, TaskItem, WhiteboardState } from './types'
 import { createDemoTeam } from './demoTeam'
 import { uid } from '../lib/rng'
-import { resetRuntime } from './runtime'
+import { resetRuntime, type SeatInfo } from './runtime'
 
 interface OfficeState {
   // dari server (tidak dipersist)
@@ -50,6 +50,8 @@ interface OfficeState {
   workstationId: string | null
   nearbyId: string | null
   hoveredId: string | null
+  nearbySeat: SeatInfo | null
+  isSitting: boolean
   directoryOpen: boolean
   newOfficeOpen: boolean
   createEmployeeOpen: boolean
@@ -103,6 +105,8 @@ export const useOffice = create<OfficeState>()(
       workstationId: null,
       nearbyId: null,
       hoveredId: null,
+      nearbySeat: null,
+      isSitting: false,
       directoryOpen: false,
       newOfficeOpen: false,
       createEmployeeOpen: false,

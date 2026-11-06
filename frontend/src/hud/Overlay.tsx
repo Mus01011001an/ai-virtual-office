@@ -46,19 +46,58 @@ export function InteractPrompt() {
   const e = useOffice((s) => s.employees.find((x) => x.id === id))
   const blocked = useOffice((s) => !!s.workstationId || s.selectedId === id)
   const summoned = useOffice((s) => !!id && s.summoned.includes(id))
-  if (!e || blocked) return null
-  return (
-    <div className="pointer-events-none absolute bottom-24 left-1/2 z-30 -translate-x-1/2 text-bone">
-      <div className="panel-soft rise flex items-center gap-4 rounded-full py-1.5 pl-1.5 pr-4 shadow-lg">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold" style={{ background: e.appearance.top }}>{e.name.slice(0, 1)}</div>
-        <div>
-          <div className="display text-[14px] leading-none">{e.name}</div>
-          <div className="text-[11px] text-bone/50">{e.role}</div>
+  const nearbySeat = useOffice((s) => s.nearbySeat)
+  const isSitting = useOffice((s) => s.isSitting)
+
+  if (blocked) return null
+
+  // 1. Jika sedang duduk
+  if (isSitting) {
+    return (
+      <div className="pointer-events-none absolute bottom-24 left-1/2 z-30 -translate-x-1/2 text-bone">
+        <div className="panel-soft rise flex items-center gap-2 rounded-full py-2 px-4 shadow-xl border border-amber-500/30 bg-black/85 font-mono text-xs text-amber-200">
+          <span className="flex items-center gap-1.5">
+            <kbd className="rounded bg-amber-500/25 px-1.5 py-0.5 text-[11px] font-bold text-amber-300">E</kbd>
+            <span>atau</span>
+            <kbd className="rounded bg-white/10 px-1.5 py-0.5 text-[11px] text-white">WASD</kbd>
+            <span>Berdiri</span>
+          </span>
         </div>
-        <div className="flex gap-3 text-[11px] text-bone/80"><span><kbd>Q</kbd> {summoned ? 'Lepas' : 'Panggil'}</span><span><kbd>E</kbd> Profil</span><span><kbd>F</kbd> Monitor</span></div>
       </div>
-    </div>
-  )
+    )
+  }
+
+  // 2. Jika sedang dekat agen AI
+  if (e) {
+    return (
+      <div className="pointer-events-none absolute bottom-24 left-1/2 z-30 -translate-x-1/2 text-bone">
+        <div className="panel-soft rise flex items-center gap-4 rounded-full py-1.5 pl-1.5 pr-4 shadow-lg">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold" style={{ background: e.appearance.top }}>{e.name.slice(0, 1)}</div>
+          <div>
+            <div className="display text-[14px] leading-none">{e.name}</div>
+            <div className="text-[11px] text-bone/50">{e.role}</div>
+          </div>
+          <div className="flex gap-3 text-[11px] text-bone/80"><span><kbd>Q</kbd> {summoned ? 'Lepas' : 'Panggil'}</span><span><kbd>E</kbd> Profil</span><span><kbd>F</kbd> Monitor</span></div>
+        </div>
+      </div>
+    )
+  }
+
+  // 3. Jika sedang dekat kursi kosong
+  if (nearbySeat) {
+    return (
+      <div className="pointer-events-none absolute bottom-24 left-1/2 z-30 -translate-x-1/2 text-bone">
+        <div className="panel-soft rise flex items-center gap-2 rounded-full py-2 px-4 shadow-xl border border-white/20 bg-black/85 font-mono text-xs text-bone">
+          <span className="flex items-center gap-1.5">
+            <kbd className="rounded bg-white/20 px-1.5 py-0.5 text-[11px] font-bold text-white">E</kbd>
+            <span>Duduk di {nearbySeat.label}</span>
+          </span>
+        </div>
+      </div>
+    )
+  }
+
+  return null
 }
 
 export function ControlsHint() {
@@ -119,9 +158,37 @@ export function Hotkeys() {
         case 'KeyN': st.set({ showNames: !st.showNames }); break
         case 'KeyH': st.set({ showHints: !st.showHints }); break
         case 'KeyM': st.set({ showMinimap: !st.showMinimap }); break
+        case 'KeyW': case 'KeyS': case 'KeyA': case 'KeyD': case 'Space': {
+          if (runtime.player.sitting) {
+            runtime.player.sitting = false
+            runtime.player.seatedInfo = null
+            st.set({ isSitting: false })
+          }
+          break
+        }
         case 'KeyG': toggleGatherAll(); break
         case 'KeyQ': { const id = st.nearbyId ?? (runtime.pointerLocked ? st.hoveredId : null) ?? st.selectedId; if (id) toggleSummon(id); break }
-        case 'KeyE': { const id = st.nearbyId ?? (runtime.pointerLocked ? st.hoveredId : null); if (id) { document.exitPointerLock?.(); st.set({ selectedId: id }) } break }
+        case 'KeyE': {
+          if (runtime.player.sitting) {
+            runtime.player.sitting = false
+            runtime.player.seatedInfo = null
+            st.set({ isSitting: false })
+            break
+          }
+          const id = st.nearbyId ?? (runtime.pointerLocked ? st.hoveredId : null)
+          if (id) {
+            document.exitPointerLock?.()
+            st.set({ selectedId: id })
+            break
+          }
+          if (runtime.nearbySeat) {
+            runtime.player.sitting = true
+            runtime.player.seatedInfo = runtime.nearbySeat
+            st.set({ isSitting: true })
+            break
+          }
+          break
+        }
         case 'KeyF': { const id = st.nearbyId ?? (runtime.pointerLocked ? st.hoveredId : null) ?? st.selectedId; if (id) { document.exitPointerLock?.(); st.set({ workstationId: id, selectedId: id }) } break }
       }
     }

@@ -64,6 +64,37 @@ export function Player() {
         iz += runtime.virtualJoystick.y
       }
     }
+
+    // 1. Logika duduk pemain manusia di kursi
+    if (p.sitting && p.seatedInfo) {
+      // Jika menekan tombol gerak atau lompat saat duduk, berdiri otomatis
+      if (can && (ix !== 0 || iz !== 0 || keys.has('Space'))) {
+        p.sitting = false
+        p.seatedInfo = null
+      } else {
+        // Tetap duduk di kursi
+        p.x = p.seatedInfo.x
+        p.y = p.seatedInfo.y
+        p.z = p.seatedInfo.z
+        p.moving = false
+        p.running = false
+        p.grounded = true
+        vy.current = 0
+
+        if (m === 'fps') {
+          p.yaw = cam.yaw
+        } else {
+          p.yaw = angDamp(p.yaw, p.seatedInfo.yaw, 10, dt)
+        }
+
+        body.current.setNextKinematicTranslation({ x: p.x, y: p.y, z: p.z })
+        poseRef.current = 'sitIdle'
+        visual.current.position.set(p.x, p.y, p.z)
+        visual.current.rotation.y = p.yaw
+        return
+      }
+    }
+
     const fx = Math.sin(cam.yaw), fz = Math.cos(cam.yaw)
     const rx = -Math.cos(cam.yaw), rz = Math.sin(cam.yaw)
     let mx = fx * iz + rx * ix, mz = fz * iz + rz * ix
@@ -95,11 +126,18 @@ export function Player() {
     body.current.setNextKinematicTranslation({ x: p.x, y: p.y, z: p.z })
 
     p.moving = moving; p.running = running
-    if (m === 'fps') p.yaw = cam.yaw
-    // Mouse-look TPS: badan selalu menghadap arah bidik (strafe), seperti game shooter.
-    else if (m === 'tps' && runtime.pointerLocked && !runtime.moveTarget) p.yaw = angDamp(p.yaw, cam.yaw, 16, dt)
-    else if (moving) p.yaw = angDamp(p.yaw, Math.atan2(mx, mz), 12, dt)
-    poseRef.current = moving ? (running ? 'run' : 'walk') : 'stand'
+    if (m === 'fps') {
+      p.yaw = cam.yaw
+    } else if (moving) {
+      // KARAKTER BERJALAN: Selalu hadapkan badan dan muka ke arah vektor gerak nyata!
+      // Saat W: targetYaw = cam.yaw
+      // Saat W+D: targetYaw = cam.yaw - 45 deg
+      // Saat S: targetYaw = cam.yaw + 180 deg (menghadap ke arah pemain/kamera!)
+      p.yaw = angDamp(p.yaw, Math.atan2(mx, mz), 14, dt)
+    }
+    // Saat diam di TPS/ISO: pertahankan p.yaw terakhir, jangan dipaksa ke cam.yaw!
+
+    poseRef.current = p.sitting ? 'sitIdle' : moving ? (running ? 'run' : 'walk') : 'stand'
     visual.current.position.set(p.x, p.y, p.z)
     visual.current.rotation.y = p.yaw
   })

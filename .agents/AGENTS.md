@@ -172,6 +172,19 @@ Sebelum menulis satu kata pun di dalam Implementation Plan, Anda **DIWAJIBKAN** 
 22. **Realtime Token Context Gauge & Permanent Episodic Memory (Phase 9)**:
     - Metrik context window (`AgentMemoryService.getContextStatus`) mengevaluasi kapasitas token aktif terhadap batas model (128.000 tokens) dengan indikator visual level risiko (`LOW`, `MODERATE`, `HIGH`, `CRITICAL`).
     - Mekanisme kompresi memori (`compactSession`) merangkum seluruh tugas yang diselesaikan, artefak, dan keputusan ke dalam `agent_session_memory` serta menggabungkannya ke `accumulatedSummary` sebelum menaikkan nomor sesi aktif, menjamin agen tidak akan pernah lupa riwayat masa lalu meskipun sesi kerja direset.
+23. **Advanced Character Kinematics & Directional Vector Heading (Phase 10)**:
+    - Di mode orang ketiga (TPS), orientasi hadap visual karakter dilarang keras dipaksa terkunci ke arah pandang kamera (`cam.yaw`) saat bergerak aktif.
+    - Model 3D karakter wajib mengarah ke $\operatorname{atan2}(mx, mz)$ dengan interpolasi modular `angDamp` ($k=14$).
+    - Tombol diagonal (`W+A`, `W+D`, `S+A`, `S+D`) mengarahkan badan ke sudut diagonal pergerakan ($\pm 45^\circ$), dan tombol mundur (`S`) secara natural memutar badan $180^\circ$ menghadap ke arah pandang kamera/pemain.
+24. **Temporal Date-Partitioned Conversation Journaling (Phase 10)**:
+    - Jejak kognitif agen AI pada Workstation dipartisi dinamis berbasis tanggal kalender ISO (`YYYY-MM-DD`) ke dalam struktur hierarkis folder (`AiConversationTab.tsx`).
+    - Setiap folder harian menyajikan kartu ringkasan aktivitas (jumlah instruksi CEO, eksekusi tools, diskusi tim) dan memuat percakapan harian secara kronologis natural.
+25. **Interactive Seating Mechanics & Dynamic Swivel Chairs (Phase 10)**:
+    - Deteksi kedekatan seluruh kursi kantor (`ALL_SEATS` < 1.35m) memberikan kemampuan interaktif bagi pemain manusia untuk duduk (`[E] Duduk`) dengan pose santai `sitIdle` dan berdiri otomatis saat menekan `E` atau tombol gerak WASD / Space.
+    - Kursi kantor didekomposisi dari baking statis menjadi komponen dinamis `<SwivelChairs />` (kaki bintang 5 statis + bantalan dudukan dinamis).
+    - Bantalan atas kursi secara otomatis memutar sudut rotasinya mengikuti *yaw* agen atau pemain yang mendudukinya, menyelaraskan orientasi kursi saat agen dipanggil berkumpul (*Gather*) mendengarkan arahan CEO tanpa *clipping*.
+26. **Chronological Activity Feed Discipline (Phase 10)**:
+    - Panel samping karyawan (`EmployeePanel.tsx`) menyajikan aktivitas dalam urutan kronologis natural murni (pesan lama di atas, entri baru di paling bawah) tanpa pemanggilan `.reverse()`, dilengkapi *auto-scroll to bottom* saat aktivitas bertambah secara real-time.
 
 
 

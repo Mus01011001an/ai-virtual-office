@@ -11,6 +11,7 @@ import { Lighting } from './office/Lighting'
 import { Effects } from './office/Effects'
 import { TimeTicker } from './office/TimeTicker'
 import { Clocks, DeskScreens, ServerLeds, Signs, StatusBoard, VideoWall } from './office/Props'
+import { SwivelChairs } from './office/SwivelChairs'
 import { Whiteboard } from './office/Whiteboard'
 import { Interaction } from './office/Interaction'
 import { GatherController } from './office/Gather'
@@ -51,6 +52,7 @@ export function Scene({ officeKey }: { officeKey: string }) {
           <TimeTicker />
           <Lighting />
           <Building />
+          <SwivelChairs />
           <Colliders />
           <Player />
           <RemotePlayers />

@@ -174,7 +174,7 @@ export function buildStatic() {
   buildSlabs(b)
   buildWingLamps(b)
   buildEntrance(b)
-  ITEMS.forEach((it) => buildItem(b, it))
+  ITEMS.filter((it) => it.type !== 'chair').forEach((it) => buildItem(b, it))
   return { main: b.build(), upper: up.build() }
 }
 

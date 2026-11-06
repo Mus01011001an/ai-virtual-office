@@ -3,10 +3,34 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useRapier } from '@react-three/rapier'
 import * as THREE from 'three'
 import { isUiBlocking, useOffice } from '../state/store'
-import { runtime } from '../state/runtime'
+import { runtime, type SeatInfo } from '../state/runtime'
 import { findPath } from './pathfinding'
-import { MEZZ_Y } from './layout'
+import { MEZZ_Y, DESKS, SLOTS } from './layout'
 import { usesPointerLock, isTouchOrIPad } from '../camera/CameraRig'
+
+const ALL_SEATS: SeatInfo[] = [
+  ...DESKS.map((d, i) => ({
+    id: `desk-chair-${i}`,
+    x: d.seat[0],
+    y: 0,
+    z: d.seat[1],
+    yaw: d.seatYaw,
+    label: `Kursi Meja ${i + 1}`,
+  })),
+  ...(Object.keys(SLOTS) as (keyof typeof SLOTS)[]).flatMap((zone) =>
+    SLOTS[zone]
+      .map((s, idx) => ({
+        id: `${zone}-seat-${idx}`,
+        x: s.x,
+        y: s.y ?? 0,
+        z: s.z,
+        yaw: s.yaw,
+        label: zone === 'meeting' ? `Kursi Rapat ${idx + 1}` : zone === 'collab' ? `Sofa Kolaborasi` : `Tempat Duduk Santai`,
+        sit: s.sit,
+      }))
+      .filter((s) => s.sit),
+  ),
+]
 
 const raycaster = new THREE.Raycaster()
 const ndc = new THREE.Vector2()
@@ -142,6 +166,38 @@ export function Interaction() {
     }
     const st = useOffice.getState()
     if (st.nearbyId !== best) st.set({ nearbyId: best })
+
+    // Deteksi kursi terdekat untuk pemain (< 1.35 m)
+    if (p.sitting && p.seatedInfo) {
+      runtime.nearbySeat = p.seatedInfo
+      if (st.nearbySeat?.id !== p.seatedInfo.id || !st.isSitting) {
+        st.set({ nearbySeat: p.seatedInfo, isSitting: true })
+      }
+    } else {
+      let nearestSeat: SeatInfo | null = null
+      let minSeatD = 1.35
+      for (const s of ALL_SEATS) {
+        if (Math.abs(s.y - p.y) > 0.8) continue
+        // Cek apakah diduduki oleh agen lain
+        let occupied = false
+        for (const [, ag] of runtime.agents) {
+          if (ag.visible && Math.hypot(ag.x - s.x, ag.z - s.z) < 0.45) {
+            occupied = true
+            break
+          }
+        }
+        if (occupied) continue
+        const d = Math.hypot(s.x - p.x, s.z - p.z)
+        if (d < minSeatD) {
+          minSeatD = d
+          nearestSeat = s
+        }
+      }
+      runtime.nearbySeat = nearestSeat
+      if (st.nearbySeat?.id !== nearestSeat?.id || st.isSitting !== p.sitting) {
+        st.set({ nearbySeat: nearestSeat, isSitting: p.sitting })
+      }
+    }
   })
 
   return (
