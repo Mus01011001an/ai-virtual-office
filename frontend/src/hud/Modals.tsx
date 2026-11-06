@@ -3,7 +3,7 @@ import { can, useOffice } from '../state/store'
 import { createOffice, providerCatalog, recruit, signOut, type CatalogEntry } from '../state/remote'
 import { Btn, CloseBtn, Field, Modal, PanelHead, Segmented, Toggle, inputCls } from './ui'
 import { QUALITY } from '../lib/quality'
-import type { Ambience, Quality } from '../state/types'
+import type { Ambience, CameraMode, Quality } from '../state/types'
 
 const TIMEZONES = ['Asia/Jakarta', 'Asia/Makassar', 'Asia/Jayapura', 'Asia/Singapore', 'Asia/Tokyo', 'Europe/London', 'America/New_York', 'UTC']
 
@@ -13,22 +13,39 @@ export function NewOfficeModal() {
   const [name, setName] = useState('')
   const [template, setTemplate] = useState<'empty' | 'demo-team'>('empty')
   const [tz, setTz] = useState('Asia/Jakarta')
+  const [isProvisionOther, setIsProvisionOther] = useState(false)
+  const [ownerName, setOwnerName] = useState('')
+  const [ownerEmail, setOwnerEmail] = useState('')
+  const [ownerPassword, setOwnerPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+
   if (!open) return null
   const close = () => { st.set({ newOfficeOpen: false }); setErr('') }
+
   const create = async () => {
     setBusy(true); setErr('')
     try {
-      await createOffice(name.trim() || `Office ${st.offices.length + 1}`, template, tz)
-      st.set({ newOfficeOpen: false }); setName('')
+      if (isProvisionOther) {
+        if (!ownerName.trim() || !ownerEmail.trim() || ownerPassword.length < 8) {
+          throw new Error('Nama, email, dan password owner minimal 8 karakter wajib diisi')
+        }
+      }
+      await createOffice(
+        name.trim() || `Office ${st.offices.length + 1}`,
+        template,
+        tz,
+        isProvisionOther ? { name: ownerName.trim(), email: ownerEmail.trim(), password: ownerPassword } : undefined
+      )
+      st.set({ newOfficeOpen: false }); setName(''); setOwnerName(''); setOwnerEmail(''); setOwnerPassword(''); setIsProvisionOther(false)
     } catch (e) { setErr((e as Error).message) } finally { setBusy(false) }
   }
+
   return (
-    <Modal title="Sesi baru" onClose={close}>
-      <div className="space-y-4 p-5 text-sm">
-        <p className="text-xs text-bone/55">Tiap sesi adalah kantor terpisah: punya employee, task, anggota, AI provider, dan jadwal sendiri. Kamu otomatis jadi Owner.</p>
-        <Field label="Nama office"><input autoFocus className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="mis. Proyek Payment Gateway" /></Field>
+    <Modal title="Buat Office Baru" onClose={close}>
+      <div className="space-y-4 p-5 text-sm max-h-[85vh] overflow-y-auto">
+        <p className="text-xs text-bone/55">Setiap office memiliki AI workforce, ruang diskusi 3D, task, dan anggota terisolasi secara multi-tenant.</p>
+        <Field label="Nama office"><input autoFocus className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="mis. Divisi Digital Musyan" /></Field>
         <Field label="Template">
           <div className="grid grid-cols-2 gap-2">
             {([['empty', 'Kantor kosong', 'Rekrut agent sendiri'], ['demo-team', 'Kantor + tim demo', '12 employee simulasi (DEMO)']] as const).map(([k, t, d]) => (
@@ -39,10 +56,29 @@ export function NewOfficeModal() {
           </div>
         </Field>
         <Field label="Timezone"><select className={inputCls} value={tz} onChange={(e) => setTz(e.target.value)}>{TIMEZONES.map((t) => <option key={t} className="bg-ink">{t}</option>)}</select></Field>
+
+        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3.5 space-y-3">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input type="checkbox" checked={isProvisionOther} onChange={(e) => setIsProvisionOther(e.target.checked)} className="rounded border-white/20 bg-ink text-accent accent-accent w-4 h-4" />
+            <span className="text-xs font-semibold text-bone">Tunjuk SuperAdmin / Owner Khusus (Konsep Musyan Workspace)</span>
+          </label>
+          <p className="text-[11px] text-bone/45 leading-relaxed">
+            Jika dicentang, office ini akan diberikan kepada klien / tim eksternal dengan kredensial pemilik baru. Anda tetap dapat memantau atau mengelolanya sebagai supervisor platform.
+          </p>
+
+          {isProvisionOther && (
+            <div className="space-y-2.5 pt-2 border-t border-white/[0.06]">
+              <Field label="Nama SuperAdmin Klien"><input className={inputCls} value={ownerName} onChange={(e) => setOwnerName(e.target.value)} placeholder="mis. John Doe" /></Field>
+              <Field label="Email SuperAdmin Klien"><input type="email" className={inputCls} value={ownerEmail} onChange={(e) => setOwnerEmail(e.target.value)} placeholder="client.owner@musyan.my.id" /></Field>
+              <Field label="Password Sementara"><input type="password" className={inputCls} value={ownerPassword} onChange={(e) => setOwnerPassword(e.target.value)} placeholder="Minimal 8 karakter" /></Field>
+            </div>
+          )}
+        </div>
+
         {err && <div className="rounded-xl bg-red-400/10 px-3 py-2 text-xs text-red-300">{err}</div>}
         <div className="flex justify-end gap-2 pt-2">
           <Btn variant="ghost" size="md" onClick={close}>Batal</Btn>
-          <Btn variant="primary" size="md" onClick={create}>{busy ? 'Membuat…' : 'Buat & masuk'}</Btn>
+          <Btn variant="primary" size="md" onClick={create}>{busy ? 'Memproses…' : isProvisionOther ? 'Buat & Serahkan ke Owner' : 'Buat & Masuk'}</Btn>
         </div>
       </div>
     </Modal>
@@ -138,9 +174,21 @@ export function SettingsPanel() {
   const st = useOffice()
   if (!st.settingsOpen) return null
   return (
-    <div className="panel rise pointer-events-auto absolute right-3 top-[68px] z-40 w-[300px] text-bone">
+    <div className="panel rise pointer-events-auto absolute right-3 top-[56px] sm:top-[68px] z-40 w-[min(320px,calc(100vw-24px))] max-h-[calc(100dvh-100px)] flex flex-col text-bone shadow-2xl">
       <PanelHead title="Pengaturan" right={<CloseBtn onClick={() => st.set({ settingsOpen: false })} />} />
-      <div className="space-y-4 p-4">
+      <div className="space-y-4 p-4 overflow-y-auto">
+        <div>
+          <div className="label mb-1.5">Sudut Pandang Kamera</div>
+          <Segmented<CameraMode>
+            value={st.cameraMode}
+            onChange={(m) => st.set({ cameraMode: m })}
+            options={[
+              { id: 'fps', label: '👁️ Mata', title: 'First-person (1)' },
+              { id: 'tps', label: '👤 Bahu', title: 'Third-person (2)' },
+              { id: 'iso', label: '📐 Atas', title: 'Isometric (3)' },
+            ]}
+          />
+        </div>
         <div>
           <div className="label mb-1.5">Kualitas grafis</div>
           <Segmented<Quality> value={st.quality} onChange={(q) => st.set({ quality: q })}
@@ -156,6 +204,7 @@ export function SettingsPanel() {
           <Toggle checked={st.mouseLook} onChange={(v) => st.set({ mouseLook: v })} label="Mouse-look (mode Bahu)" hint="Gerak mouse = putar kamera, tanpa klik kanan" />
           <Toggle checked={st.showNames} onChange={(v) => st.set({ showNames: v })} label="Nama di atas kepala" hint="Tombol N" />
           <Toggle checked={st.showHints} onChange={(v) => st.set({ showHints: v })} label="Petunjuk kontrol" hint="Tombol H" />
+          <Toggle checked={st.showMinimap} onChange={(v) => st.set({ showMinimap: v })} label="Tampilkan radar peta" hint="Tombol M" />
           <Toggle checked={st.simulateSchedule} onChange={(v) => st.set({ simulateSchedule: v })} label="Ikuti jadwal kerja" hint="Di luar 09–18 employee demo pulang" />
         </div>
         {can('ai.provider:read', st.me) && (

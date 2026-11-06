@@ -6,6 +6,7 @@
 import { useOffice } from './store'
 import { holdDemo, releaseDemo } from './demoEngine'
 import { uid } from '../lib/rng'
+import { startDiscussion, endDiscussion } from './remote'
 
 export function systemMsg(text: string) {
   const st = useOffice.getState()
@@ -29,6 +30,7 @@ export function summon(ids: string[]) {
     st.pushActivity(id, 'instruction', 'Dipanggil CEO — menuju ke CEO')
   }
   useOffice.getState().set({ summoned: [...useOffice.getState().summoned, ...add] })
+  void startDiscussion(useOffice.getState().summoned)
   const names = add.map((id) => st.employees.find((x) => x.id === id)!.name)
   systemMsg(names.length > 3 ? `${names.length} orang dipanggil ke diskusi` : `${names.join(', ')} dipanggil ke diskusi`)
 }
@@ -50,6 +52,7 @@ export function dismiss(ids?: string[]) {
   const bubbles = { ...useOffice.getState().bubbles }
   out.forEach((id) => delete bubbles[id])
   useOffice.getState().set({ summoned: left, bubbles })
+  if (!left.length) void endDiscussion()
   systemMsg(left.length ? `${out.length} orang kembali ke meja` : 'Diskusi selesai — semua kembali bekerja')
 }
 

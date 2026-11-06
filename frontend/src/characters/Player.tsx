@@ -57,6 +57,12 @@ export function Player() {
       if (keys.has('KeyS') || keys.has('ArrowDown')) iz -= 1
       if (keys.has('KeyD') || keys.has('ArrowRight')) ix += 1
       if (keys.has('KeyA') || keys.has('ArrowLeft')) ix -= 1
+
+      // Injeksi Virtual Analog Joystick (Mobile Touch)
+      if (runtime.virtualJoystick.x !== 0 || runtime.virtualJoystick.y !== 0) {
+        ix += runtime.virtualJoystick.x
+        iz += runtime.virtualJoystick.y
+      }
     }
     const fx = Math.sin(cam.yaw), fz = Math.cos(cam.yaw)
     const rx = -Math.cos(cam.yaw), rz = Math.sin(cam.yaw)
@@ -72,7 +78,10 @@ export function Player() {
     const len = Math.hypot(mx, mz)
     const moving = len > 0.001
     if (moving) { mx /= len; mz /= len }
-    const running = can && (keys.has('ShiftLeft') || keys.has('ShiftRight'))
+
+    // Auto-sprint jika joystick didorong penuh (> 85%) atau tombol Shift ditekan
+    const joyMagnitude = Math.hypot(runtime.virtualJoystick.x, runtime.virtualJoystick.y)
+    const running = can && (keys.has('ShiftLeft') || keys.has('ShiftRight') || joyMagnitude > 0.85)
     const speed = running ? 6.2 : 3.4
 
     vy.current -= 22 * dt

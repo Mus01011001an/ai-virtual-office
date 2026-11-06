@@ -39,6 +39,14 @@ model Company {
   employeeActivities EmployeeActivity[]
   discussions        Discussion[]
   aiProviders        AiProvider[]
+  artifacts          Artifact[]
+  usageRecords       UsageRecord[]
+  standupReports     StandupReport[]
+  approvals          ApprovalRequest[]
+  webhooks           WebhookConfig[]
+  mcpServers         McpServer[]
+  agentFiles         AgentFile[]
+  agentSessionMemories AgentSessionMemory[]
 
   @@map("company")
 }

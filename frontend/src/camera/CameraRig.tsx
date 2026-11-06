@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useRapier } from '@react-three/rapier'
 import * as THREE from 'three'
-import { useOffice } from '../state/store'
+import { isUiBlocking, useOffice } from '../state/store'
 import { runtime } from '../state/runtime'
 
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v))
@@ -17,11 +17,22 @@ export const usesPointerLock = (mode = useOffice.getState().cameraMode) =>
   mode === 'fps' || (mode === 'tps' && useOffice.getState().mouseLook)
 
 /**
+ * Deteksi apakah perangkat adalah iPad, iPhone, atau layar sentuh
+ */
+export const isTouchOrIPad = () => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ||
+    'ontouchstart' in window
+  )
+}
+
+/**
  * 3 mode kamera:
- *  - fps : dari mata (pointer-lock, bebas lihat ke atas)
- *  - tps : di belakang bahu. Mouse-look (default): mouse langsung memutar kamera seperti game
- *          shooter, karakter menghadap arah kamera. Mode klasik: klik kanan + drag.
- *  - iso : overview isometrik (RMB drag rotasi, scroll zoom, klik lantai → jalan)
+ *  - fps : dari mata (pointer-lock di desktop, drag-to-look di iPad/touch)
+ *  - tps : di belakang bahu (mouse-look bila terkunci, drag-to-look bila tidak terkunci)
+ *  - iso : overview isometrik (drag rotasi, scroll / pinch zoom)
  */
 export function CameraRig() {
   const { camera, gl } = useThree()
@@ -34,20 +45,73 @@ export function CameraRig() {
 
   useEffect(() => {
     const el = gl.domElement
-    const onMove = (e: MouseEvent) => {
+    let isPointerDown = false
+    let lastClientX = 0
+    let lastClientY = 0
+    let initialPinchDist = 0
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (isUiBlocking()) return
+      if (e.button === 2) {
+        runtime.rmbDown = true
+      }
+      if (e.button === 0 || e.pointerType === 'touch') {
+        isPointerDown = true
+        lastClientX = e.clientX
+        lastClientY = e.clientY
+      }
+    }
+
+    const onPointerMove = (e: PointerEvent) => {
       const st = useOffice.getState()
       const m = st.cameraMode
       const sens = 0.0022 * st.sensitivity
       const locked = document.pointerLockElement === el
-      if ((locked && m !== 'iso') || (!locked && m !== 'fps' && runtime.rmbDown)) {
-        // Lonjakan movementX saat lock baru aktif (bug Chrome) diabaikan.
+
+      // Kasus 1: Pointer Lock aktif (Desktop mouselook klasik)
+      if (locked && m !== 'iso') {
         if (Math.abs(e.movementX) > 300 || Math.abs(e.movementY) > 300) return
         runtime.cam.yaw -= e.movementX * sens
-        if (m !== 'iso') runtime.cam.pitch = clamp(runtime.cam.pitch - e.movementY * sens, m === 'fps' ? -1.52 : -1.2, m === 'fps' ? 1.52 : 0.75)
+        runtime.cam.pitch = clamp(
+          runtime.cam.pitch - e.movementY * sens,
+          m === 'fps' ? -1.52 : -1.2,
+          m === 'fps' ? 1.52 : 0.75
+        )
+        return
+      }
+
+      // Kasus 2: Non-locked Drag Mode (iPad Trackpad, iPad Mouse, Touch, atau RMB Drag)
+      const isDragging = (isPointerDown && (e.buttons === 1 || e.pointerType === 'touch')) || runtime.rmbDown
+
+      if (isDragging) {
+        const dx = e.clientX - lastClientX
+        const dy = e.clientY - lastClientY
+        lastClientX = e.clientX
+        lastClientY = e.clientY
+
+        if (Math.abs(dx) > 120 || Math.abs(dy) > 120) return
+
+        runtime.cam.yaw -= dx * sens
+        if (m !== 'iso') {
+          runtime.cam.pitch = clamp(
+            runtime.cam.pitch - dy * sens,
+            m === 'fps' ? -1.52 : -1.2,
+            m === 'fps' ? 1.52 : 0.75
+          )
+        }
+      } else {
+        lastClientX = e.clientX
+        lastClientY = e.clientY
       }
     }
-    const onDown = (e: MouseEvent) => { if (e.button === 2) runtime.rmbDown = true }
-    const onUp = (e: MouseEvent) => { if (e.button === 2) runtime.rmbDown = false }
+
+    const onPointerUp = (e: PointerEvent) => {
+      if (e.button === 2) runtime.rmbDown = false
+      if (e.button === 0 || e.pointerType === 'touch') {
+        isPointerDown = false
+      }
+    }
+
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
       const st = useOffice.getState()
@@ -55,29 +119,86 @@ export function CameraRig() {
       const c = runtime.cam
       if (st.cameraMode === 'tps') {
         c.dist = clamp(c.dist * (1 + d), 0.6, 14)
-        if (c.dist < 1.1 && d < 0) { st.set({ cameraMode: 'fps' }); c.dist = 3 }
+        if (c.dist < 1.1 && d < 0) {
+          st.set({ cameraMode: 'fps' })
+          c.dist = 3
+        }
       } else if (st.cameraMode === 'fps') {
-        if (d > 0) { st.set({ cameraMode: 'tps' }); c.dist = 3 }
-      } else c.isoDist = clamp(c.isoDist * (1 + d), 10, 95)
+        if (d > 0) {
+          st.set({ cameraMode: 'tps' })
+          c.dist = 3
+        }
+      } else {
+        c.isoDist = clamp(c.isoDist * (1 + d), 10, 95)
+      }
     }
+
     const onCtx = (e: Event) => e.preventDefault()
+
     const onLock = () => {
       runtime.pointerLocked = document.pointerLockElement === el
-      useOffice.getState().set({ locked: runtime.pointerLocked, ...(runtime.pointerLocked ? {} : { hoveredId: null }) })
+      useOffice.getState().set({
+        locked: runtime.pointerLocked,
+        ...(runtime.pointerLocked ? {} : { hoveredId: null }),
+      })
     }
-    window.addEventListener('mousemove', onMove)
-    el.addEventListener('mousedown', onDown)
-    window.addEventListener('mouseup', onUp)
+
+    // Touch handlers for iPad touchscreen pinch zoom
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        const t1 = e.touches[0]
+        const t2 = e.touches[1]
+        initialPinchDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY)
+      }
+    }
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && initialPinchDist > 0) {
+        e.preventDefault()
+        const t1 = e.touches[0]
+        const t2 = e.touches[1]
+        const currentDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY)
+        const diff = (initialPinchDist - currentDist) * 0.015
+        initialPinchDist = currentDist
+
+        const st = useOffice.getState()
+        const c = runtime.cam
+        if (st.cameraMode === 'tps') {
+          c.dist = clamp(c.dist * (1 + diff), 0.6, 14)
+        } else if (st.cameraMode === 'iso') {
+          c.isoDist = clamp(c.isoDist * (1 + diff), 10, 95)
+        }
+      }
+    }
+
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) {
+        initialPinchDist = 0
+      }
+    }
+
+    el.addEventListener('pointerdown', onPointerDown)
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', onPointerUp)
+    window.addEventListener('pointercancel', onPointerUp)
     el.addEventListener('wheel', onWheel, { passive: false })
     el.addEventListener('contextmenu', onCtx)
     document.addEventListener('pointerlockchange', onLock)
+    el.addEventListener('touchstart', onTouchStart, { passive: false })
+    el.addEventListener('touchmove', onTouchMove, { passive: false })
+    el.addEventListener('touchend', onTouchEnd)
+
     return () => {
-      window.removeEventListener('mousemove', onMove)
-      el.removeEventListener('mousedown', onDown)
-      window.removeEventListener('mouseup', onUp)
+      el.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', onPointerUp)
+      window.removeEventListener('pointercancel', onPointerUp)
       el.removeEventListener('wheel', onWheel)
       el.removeEventListener('contextmenu', onCtx)
       document.removeEventListener('pointerlockchange', onLock)
+      el.removeEventListener('touchstart', onTouchStart)
+      el.removeEventListener('touchmove', onTouchMove)
+      el.removeEventListener('touchend', onTouchEnd)
     }
   }, [gl])
 

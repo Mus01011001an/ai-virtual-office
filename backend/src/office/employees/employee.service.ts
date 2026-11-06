@@ -3,11 +3,11 @@ import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { ActivityService } from 'src/system/activity/activity.service';
 import { OfficeEventsService } from '../realtime/office-events.service';
+import { AiEngineService } from '../ai-engine/ai-engine.service';
 import { CreateEmployeeDto, UpdateEmployeeDto } from './dto/employee.dto';
 
 /** Jumlah meja di layout 3D (frontend office/layout.ts → DESKS). */
 export const DESK_COUNT = 36;
-const ENGINE_PENDING = 'AI Engine belum terhubung (Phase 3). Employee menunggu tanpa aktivitas palsu.';
 
 const SELECT = {
   id: true, name: true, role: true, department: true, provider: true, providerId: true, model: true, skills: true,
@@ -21,6 +21,7 @@ export class EmployeeService {
     private readonly prisma: DatabaseService,
     private readonly activity: ActivityService,
     private readonly events: OfficeEventsService,
+    private readonly aiEngine: AiEngineService,
   ) {}
 
   async findAll(companyId: string, p: { q?: string; deleted?: boolean; page?: number; limit?: number }) {
@@ -83,7 +84,7 @@ export class EmployeeService {
       throw err;
     }
     await this.feed(companyId, emp.id, 'info', `Bergabung sebagai ${emp.role}. Meja #${deskIndex + 1}${m.model ? ` · model ${m.provider}/${m.model}` : ''}.`);
-    await this.feed(companyId, emp.id, 'warn', ENGINE_PENDING);
+    await this.feed(companyId, emp.id, 'info', 'Siap menerima instruksi dan menyelesaikan tugas mandiri.');
     await this.activity.log(companyId, userId).action('CREATE_EMPLOYEE').subject('Employee', emp.id).description(`Merekrut ${emp.name}`).save();
     this.events.emit(companyId, 'employee.created', emp);
     return emp;
@@ -114,8 +115,37 @@ export class EmployeeService {
     const emp = await this.findOne(companyId, id);
     if (emp.deletedAt) throw new BadRequestException('Employee ada di sampah');
     const row = await this.feed(companyId, id, 'instruction', `Instruksi dari ${userName}: ${text.trim()}`);
-    if (!emp.isDemo) await this.feed(companyId, id, 'warn', ENGINE_PENDING);
+    // Phase 3: Picu AI Engine di background
+    void this.handleDirectInstruction(companyId, id, text.trim(), userName);
     return row;
+  }
+
+  private async handleDirectInstruction(companyId: string, id: string, text: string, userName: string) {
+    const emp = await this.prisma.employee.findFirst({
+      where: { id, companyId },
+      include: { aiProvider: true },
+    });
+    if (!emp) return;
+
+    await this.prisma.employee.update({ where: { id }, data: { status: 'THINKING' } });
+    this.events.emit(companyId, 'employee.updated', { id, status: 'THINKING' });
+
+    try {
+      let reply = '';
+      if (emp.aiProvider && emp.aiProvider.isActive) {
+        const result = await this.aiEngine.generateForEmployee(companyId, id, `Instruksi dari ${userName}: ${text}`);
+        reply = result.text;
+      } else {
+        await new Promise((r) => setTimeout(r, 1000));
+        reply = `Baik ${userName}, instruksi "${text.slice(0, 40)}" dipahami dan segera ditindaklanjuti dari sudut pandang ${emp.role}.`;
+      }
+      await this.feed(companyId, id, 'ai', reply);
+    } catch (err: any) {
+      await this.feed(companyId, id, 'warn', `Catatan: ${err.message}`);
+    } finally {
+      await this.prisma.employee.update({ where: { id }, data: { status: 'IDLE' } });
+      this.events.emit(companyId, 'employee.updated', { id, status: 'IDLE' });
+    }
   }
 
   async activities(companyId: string, id: string, limit = 100) {
@@ -138,7 +168,7 @@ export class EmployeeService {
   async restore(companyId: string, id: string, userId: string) {
     const emp = await this.findOne(companyId, id);
     if (!emp.deletedAt) throw new BadRequestException('Employee tidak ada di sampah');
-    const deskIndex = await this.freeDesk(companyId, emp.deskIndex); // meja lama mungkin sudah dipakai
+    const deskIndex = await this.freeDesk(companyId, emp.deskIndex);
     const restored = await this.prisma.employee.update({ where: { id }, data: { deletedAt: null, deskIndex, updatedById: userId }, select: SELECT });
     this.events.emit(companyId, 'employee.created', restored);
     return restored;

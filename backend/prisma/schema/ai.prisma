@@ -24,8 +24,9 @@ model AiProvider {
   updatedAt       DateTime  @updatedAt
   deletedAt       DateTime?
 
-  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  employees Employee[]
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employees    Employee[]
+  usageRecords UsageRecord[]
 
   @@index([companyId, deletedAt])
   @@map("ai_provider")

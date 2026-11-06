@@ -41,6 +41,12 @@ export interface Employee {
   currentTool: string | null
   progress: number
   appearance: Appearance
+  voiceProfile?: {
+    pitch?: number
+    rate?: number
+    gender?: 'male' | 'female' | 'neutral'
+    preferredVoice?: string
+  }
   /** true = data simulasi Demo Mode, bukan eksekusi nyata */
   isDemo: boolean
   createdAt: number
@@ -78,5 +84,134 @@ export type CameraMode = 'fps' | 'tps' | 'iso'
 export type Quality = 'low' | 'medium' | 'high'
 export type Ambience = 'night' | 'day' | 'auto'
 
+export type MessageStance = 'PROPOSE' | 'CRITIQUE' | 'SUPPORT' | 'SYNTHESIZE' | 'QUESTION' | 'NEUTRAL'
+
+export interface WhiteboardPoint {
+  speaker: string
+  stance: MessageStance | string
+  text: string
+}
+
+export interface WhiteboardActionItem {
+  assigneeName: string
+  title: string
+  status?: string
+}
+
+export interface WhiteboardState {
+  topic: string
+  consensusScore: number
+  points: WhiteboardPoint[]
+  actionItems: WhiteboardActionItem[]
+  summary: string
+}
+
 /** Pesan di panel diskusi. from = 'me' (CEO), 'system', atau id employee. */
-export interface ChatMsg { id: string; at: number; from: string; text: string; demo?: boolean }
+export interface ChatMsg {
+  id: string
+  at: number
+  from: string
+  text: string
+  stance?: MessageStance | string
+  demo?: boolean
+}
+
+// ----------------- PHASE 6: PRESENCE & SCHEDULE -----------------
+export interface RemoteUserData {
+  userId: string
+  name: string
+  role: string
+  x: number
+  y: number
+  z: number
+  yaw: number
+  anim: 'idle' | 'walk' | 'run'
+  lastSeen?: number
+}
+
+export interface ShiftState {
+  kind: 'work' | 'break' | 'closed'
+  label: string
+  nextEvent: string
+  currentBreakName?: string
+}
+
+export interface OfficeSchedule {
+  id?: string
+  companyId?: string
+  timezone: string
+  workStart: string
+  workEnd: string
+  workdays: number[]
+  breaks: Array<{ name: string; start: string; end: string }>
+  standupTime: string
+  autoStandupEnabled: boolean
+  proactiveEnabled: boolean
+  clock: string
+  currentShift: ShiftState
+}
+
+export interface StandupReportData {
+  id: string
+  companyId: string
+  date: string
+  summary: string
+  attendees: string[]
+  reports: Array<{
+    employeeId: string
+    name: string
+    yesterday: string
+    today: string
+    blockers: string
+  }>
+  createdAt: string
+}
+
+export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED'
+export type ApprovalRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+export type WebhookChannel = 'TELEGRAM' | 'DISCORD' | 'SLACK' | 'GENERIC_HTTP'
+
+export interface ApprovalRequestData {
+  id: string
+  companyId: string
+  taskId?: string | null
+  employeeId?: string | null
+  toolName: string
+  riskLevel: ApprovalRiskLevel
+  status: ApprovalStatus
+  title: string
+  description?: string | null
+  inputPayload: Record<string, unknown>
+  outputResult?: Record<string, unknown> | null
+  reviewerId?: string | null
+  reviewNote?: string | null
+  expiresAt?: string | null
+  createdAt: string
+  updatedAt?: string
+  task?: { id: string; title: string; status: string } | null
+  employee?: { id: string; name: string; role: string } | null
+}
+
+export interface WebhookConfigData {
+  id: string
+  companyId: string
+  channel: WebhookChannel
+  name: string
+  url: string
+  secret?: string | null
+  events: string[]
+  isActive: boolean
+  metadata?: Record<string, unknown>
+  createdById?: string | null
+  createdAt: string
+  updatedAt?: string
+}
+
+export interface GithubIntegrationEvent {
+  source: string
+  event: string
+  actor: string
+  description: string
+  timestamp: string
+}
+

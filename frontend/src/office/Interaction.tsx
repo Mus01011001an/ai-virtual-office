@@ -6,7 +6,7 @@ import { isUiBlocking, useOffice } from '../state/store'
 import { runtime } from '../state/runtime'
 import { findPath } from './pathfinding'
 import { MEZZ_Y } from './layout'
-import { usesPointerLock } from '../camera/CameraRig'
+import { usesPointerLock, isTouchOrIPad } from '../camera/CameraRig'
 
 const raycaster = new THREE.Raycaster()
 const ndc = new THREE.Vector2()
@@ -40,17 +40,32 @@ export function Interaction() {
       if (wall && wall.timeOfImpact < h.distance - 0.3) return null
       return findTag(h.object)
     })
-    const toNdc = (e: MouseEvent): [number, number] => {
+    const toNdc = (cx: number, cy: number): [number, number] => {
       const r = el.getBoundingClientRect()
-      return [((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1]
+      return [((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1]
     }
-    const onDown = (e: MouseEvent) => {
-      if (e.button !== 0 || isUiBlocking()) return
+
+    let downPos = { x: 0, y: 0, time: 0, button: 0 }
+
+    const onPointerDown = (e: PointerEvent) => {
+      downPos = { x: e.clientX, y: e.clientY, time: performance.now(), button: e.button }
+    }
+
+    const onPointerUp = (e: PointerEvent) => {
+      if (downPos.button !== 0 || isUiBlocking()) return
+      const dx = e.clientX - downPos.x
+      const dy = e.clientY - downPos.y
+      const dist = Math.hypot(dx, dy)
+      const elapsed = performance.now() - downPos.time
+
+      // Jika pergerakan lebih dari 8px atau ditahan lebih dari 450ms, ini adalah gesture drag kamera (bukan tap/klik)
+      if (dist > 8 || elapsed > 450) return
+
       const st = useOffice.getState()
       const mode = st.cameraMode
       const locked = document.pointerLockElement === el
-      if (usesPointerLock(mode) && !locked) { el.requestPointerLock()?.catch?.(() => {}); return }
-      const [x, y] = locked ? [0, 0] : toNdc(e)
+      const [x, y] = locked ? [0, 0] : toNdc(e.clientX, e.clientY)
+
       const tag = pick(x, y)
       if (tag) {
         if (document.pointerLockElement) document.exitPointerLock()
@@ -58,6 +73,13 @@ export function Interaction() {
         else st.set({ selectedId: tag.employeeId })
         return
       }
+
+      // Jika klik area kosong di desktop dan mode butuh pointer lock, kunci kursor
+      if (usesPointerLock(mode) && !locked && !isTouchOrIPad()) {
+        el.requestPointerLock()?.catch?.(() => {})
+        return
+      }
+
       if (mode === 'iso') {
         ndc.set(x, y); raycaster.setFromCamera(ndc, camera)
         const p = runtime.player
@@ -69,22 +91,29 @@ export function Interaction() {
         runtime.moveTarget = { path, i: 0, dest: [pt.x, pt.z] }
       }
     }
+
     let last = 0
-    const onMove = (e: MouseEvent) => {
+    const onPointerMove = (e: PointerEvent) => {
       const st = useOffice.getState()
-      if (document.pointerLockElement === el || st.cameraMode === 'fps' || runtime.rmbDown) return
+      if (document.pointerLockElement === el || (st.cameraMode === 'fps' && !isTouchOrIPad()) || runtime.rmbDown) return
       const now = performance.now()
       if (now - last < 70) return
       last = now
-      const [x, y] = toNdc(e)
+      const [x, y] = toNdc(e.clientX, e.clientY)
       const tag = pick(x, y)
       const id = tag?.employeeId ?? null
       el.style.cursor = tag ? 'pointer' : st.cameraMode === 'iso' ? 'crosshair' : 'default'
       if (st.hoveredId !== id) st.set({ hoveredId: id })
     }
-    el.addEventListener('mousedown', onDown)
-    el.addEventListener('mousemove', onMove)
-    return () => { el.removeEventListener('mousedown', onDown); el.removeEventListener('mousemove', onMove) }
+
+    el.addEventListener('pointerdown', onPointerDown)
+    el.addEventListener('pointerup', onPointerUp)
+    el.addEventListener('pointermove', onPointerMove)
+    return () => {
+      el.removeEventListener('pointerdown', onPointerDown)
+      el.removeEventListener('pointerup', onPointerUp)
+      el.removeEventListener('pointermove', onPointerMove)
+    }
   }, [camera, gl, world, rapier])
 
   useFrame((state) => {

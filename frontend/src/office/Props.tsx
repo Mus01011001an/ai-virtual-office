@@ -127,6 +127,9 @@ function DeskScreen({ id }: { id: string }) {
     runtime.monitorObjects.set(id, ref.current)
     return () => { runtime.monitorObjects.delete(id) }
   }, [id])
+
+  const isBusy = e.status === 'WORKING' || e.status === 'THINKING' || e.status === 'TOOL_EXECUTING'
+
   const tex = useCanvasTexture(512, 304, (g, W, H) => {
     const meta = STATUS_META[e.status]
     const off = e.status === 'OFFLINE' || e.status === 'ON_BREAK' || e.status === 'IN_MEETING' || e.status === 'COLLABORATING'
@@ -138,21 +141,39 @@ function DeskScreen({ id }: { id: string }) {
       g.textAlign = 'left'
       return
     }
+    // Top Bar
     g.fillStyle = '#151c27'; g.fillRect(0, 0, W, 44)
     g.fillStyle = meta.color; g.beginPath(); g.arc(22, 22, 8, 0, Math.PI * 2); g.fill()
     g.fillStyle = '#e6edf5'; g.font = font(600, 22); g.textBaseline = 'middle'; g.textAlign = 'left'
     g.fillText(`${e.name} · ${meta.label}`, 40, 23)
-    if (e.isDemo) { g.fillStyle = '#ffffff30'; g.fillRect(W - 78, 10, 66, 24); g.fillStyle = '#fff'; g.font = font(700, 14); g.fillText('DEMO', W - 64, 23) }
+
+    if (e.isDemo) {
+      g.fillStyle = '#ffffff30'; g.fillRect(W - 78, 10, 66, 24); g.fillStyle = '#fff'; g.font = font(700, 14); g.fillText('DEMO', W - 64, 23)
+    }
+
     g.fillStyle = '#9fb0c5'; g.font = font(500, 17)
     g.fillText(e.currentTask ? `▸ ${e.currentTask}`.slice(0, 44) : '▸ Tidak ada task aktif', 14, 64)
-    const lines = (acts ?? []).slice(-9)
+
+    const lines = (acts ?? []).slice(-7)
     g.font = '15px ui-monospace, Menlo, monospace'
     lines.forEach((a, i) => {
       g.fillStyle = a.kind === 'tool' ? '#7dd3fc' : a.kind === 'output' ? '#a7f3d0' : a.kind === 'warn' ? '#fcd34d' : a.kind === 'error' ? '#fca5a5' : a.kind === 'done' ? '#86efac' : '#8b9bb0'
-      g.fillText(a.text.slice(0, 52), 14, 92 + i * 23)
+      g.fillText(a.text.slice(0, 52), 14, 92 + i * 22)
     })
-    if (e.progress > 0) { g.fillStyle = '#1f2937'; g.fillRect(14, H - 14, W - 28, 6); g.fillStyle = '#34d399'; g.fillRect(14, H - 14, (W - 28) * e.progress, 6) }
-  }, [e.status, e.currentTask, e.progress, acts])
+
+    // Active live terminal prompt & blinking cursor
+    if (isBusy) {
+      const cursor = Math.floor(Date.now() / 500) % 2 === 0 ? '█' : ' '
+      g.fillStyle = '#38bdf8'
+      const label = e.currentTool ? `tool:${e.currentTool}` : e.status === 'THINKING' ? 'reasoning' : 'active'
+      g.fillText(`$ [${label}] ${cursor}`, 14, 92 + lines.length * 22)
+    }
+
+    if (e.progress > 0) {
+      g.fillStyle = '#1f2937'; g.fillRect(14, H - 14, W - 28, 6)
+      g.fillStyle = '#34d399'; g.fillRect(14, H - 14, (W - 28) * e.progress, 6)
+    }
+  }, [e.status, e.currentTask, e.currentTool, e.progress, acts, isBusy], isBusy ? 500 : undefined)
   return (
     <mesh ref={ref} position={[d.screen.x, d.screen.y, d.screen.z]} rotation-y={d.screen.yaw}>
       <planeGeometry args={[0.54, 0.32]} />

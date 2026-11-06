@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { ActivityEvent, Ambience, CameraMode, ChatMsg, Employee, Me, Office, Quality, TaskItem } from './types'
+import type { ActivityEvent, Ambience, CameraMode, ChatMsg, Employee, Me, Office, OfficeSchedule, Quality, RemoteUserData, ShiftState, TaskItem, WhiteboardState } from './types'
 import { createDemoTeam } from './demoTeam'
 import { uid } from '../lib/rng'
 import { resetRuntime } from './runtime'
@@ -12,6 +12,21 @@ interface OfficeState {
   offices: Office[]
   currentOfficeId: string
   providersOpen: boolean
+  whiteboardOpen: boolean
+  debateMode: boolean
+  whiteboard: WhiteboardState
+  remoteUsers: RemoteUserData[]
+  shiftState: ShiftState | null
+  officeSchedule: OfficeSchedule | null
+  standupOpen: boolean
+  scheduleConfigOpen: boolean
+  approvalOpen: boolean
+  integrationsOpen: boolean
+  pendingApprovalsCount: number
+  audioSettingsOpen: boolean
+  isRecordingVoice: boolean
+  dictatedText: string
+  muted: boolean
   // persisted (preferensi lokal)
   cameraMode: CameraMode
   showNames: boolean
@@ -21,6 +36,7 @@ interface OfficeState {
   /** TPS: mouse langsung menggerakkan kamera (pointer-lock), tanpa klik kanan */
   mouseLook: boolean
   showHints: boolean
+  showMinimap: boolean
   simulateSchedule: boolean
   sensitivity: number
   // session
@@ -38,6 +54,8 @@ interface OfficeState {
   newOfficeOpen: boolean
   createEmployeeOpen: boolean
   settingsOpen: boolean
+  membersOpen: boolean
+  mcpOpen: boolean
   /** employee yang sedang dipanggil/ikut CEO (mendengarkan diskusi) */
   summoned: string[]
   chat: ChatMsg[]
@@ -73,6 +91,7 @@ export const useOffice = create<OfficeState>()(
       ambience: 'night',
       mouseLook: true,
       showHints: true,
+      showMinimap: true,
       simulateSchedule: false,
       sensitivity: 1,
       entered: false,
@@ -88,6 +107,29 @@ export const useOffice = create<OfficeState>()(
       newOfficeOpen: false,
       createEmployeeOpen: false,
       settingsOpen: false,
+      membersOpen: false,
+      mcpOpen: false,
+      whiteboardOpen: false,
+      debateMode: false,
+      whiteboard: {
+        topic: 'Diskusi Tim',
+        consensusScore: 0,
+        points: [],
+        actionItems: [],
+        summary: '',
+      },
+      remoteUsers: [],
+      shiftState: null,
+      officeSchedule: null,
+      standupOpen: false,
+      scheduleConfigOpen: false,
+      approvalOpen: false,
+      integrationsOpen: false,
+      pendingApprovalsCount: 0,
+      audioSettingsOpen: false,
+      isRecordingVoice: false,
+      dictatedText: '',
+      muted: false,
       summoned: [],
       chat: [],
       bubbles: {},
@@ -140,7 +182,7 @@ export const useOffice = create<OfficeState>()(
       },
       partialize: (s) => ({
         cameraMode: s.cameraMode, showNames: s.showNames, quality: s.quality, ambience: s.ambience,
-        mouseLook: s.mouseLook, showHints: s.showHints,
+        mouseLook: s.mouseLook, showHints: s.showHints, showMinimap: s.showMinimap,
         simulateSchedule: s.simulateSchedule, sensitivity: s.sensitivity,
       }),
     },
@@ -149,7 +191,21 @@ export const useOffice = create<OfficeState>()(
 
 export const isUiBlocking = () => {
   const s = useOffice.getState()
-  return !s.entered || !!s.workstationId || s.newOfficeOpen || s.createEmployeeOpen || s.providersOpen
+  return (
+    !s.entered ||
+    !!s.workstationId ||
+    s.newOfficeOpen ||
+    s.membersOpen ||
+    s.mcpOpen ||
+    s.createEmployeeOpen ||
+    s.providersOpen ||
+    s.whiteboardOpen ||
+    s.standupOpen ||
+    s.scheduleConfigOpen ||
+    s.approvalOpen ||
+    s.integrationsOpen ||
+    s.audioSettingsOpen
+  )
 }
 
 /** Cek permission role aktif (wildcard '*' = semua). Office demo lokal tanpa login → tidak dipakai. */

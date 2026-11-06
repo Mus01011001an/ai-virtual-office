@@ -9,11 +9,11 @@ const VARIANT: Record<Variant, string> = {
   light: 'bg-bone text-ink hover:bg-white',
 }
 
-export const Btn = ({ children, onClick, active, className = '', title, variant = 'solid', size = 'sm' }: {
-  children: ReactNode; onClick?: () => void; active?: boolean; className?: string; title?: string; variant?: Variant; size?: 'sm' | 'md'
+export const Btn = ({ children, onClick, active, className = '', title, variant = 'solid', size = 'sm', disabled, type = 'button' }: {
+  children: ReactNode; onClick?: () => void; active?: boolean; className?: string; title?: string; variant?: Variant; size?: 'sm' | 'md'; disabled?: boolean; type?: 'button' | 'submit' | 'reset'
 }) => (
-  <button title={title} onClick={onClick}
-    className={`inline-flex items-center justify-center gap-1.5 rounded-full font-semibold transition-colors ${size === 'md' ? 'h-10 px-5 text-sm' : 'h-8 px-3.5 text-[12.5px]'} ${active ? 'bg-bone text-ink' : VARIANT[variant]} ${className}`}>
+  <button type={type} title={title} onClick={onClick} disabled={disabled}
+    className={`inline-flex items-center justify-center gap-1.5 rounded-full font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${size === 'md' ? 'h-10 px-5 text-sm' : 'h-8 px-3.5 text-[12.5px]'} ${active ? 'bg-bone text-ink' : VARIANT[variant]} ${className}`}>
     {children}
   </button>
 )
@@ -35,12 +35,33 @@ export const DemoBadge = () => (
   <span className="rounded-full bg-demo px-2 text-[10px] font-bold leading-[16px] text-ink">Demo</span>
 )
 
-export const Avatar = ({ color, name, size = 36 }: { color: string; name: string; size?: number }) => (
-  <div className="flex shrink-0 items-center justify-center rounded-full font-bold text-white ring-2 ring-white/10"
-    style={{ background: `linear-gradient(135deg, ${color}, color-mix(in srgb, ${color} 55%, #000))`, width: size, height: size, fontSize: size * 0.42 }}>
-    {name.slice(0, 1)}
-  </div>
-)
+export const Avatar = ({
+  color,
+  name,
+  size = 36,
+}: {
+  color?: string
+  name?: string
+  size?: number
+}) => {
+  const safeColor = color || '#f4a259'
+  const safeName = typeof name === 'string' && name.trim().length > 0 ? name.trim() : '?'
+  const initial = safeName.slice(0, 1).toUpperCase()
+
+  return (
+    <div
+      className="flex shrink-0 items-center justify-center rounded-full font-bold text-white ring-2 ring-white/10"
+      style={{
+        background: `linear-gradient(135deg, ${safeColor}, color-mix(in srgb, ${safeColor} 55%, #000))`,
+        width: size,
+        height: size,
+        fontSize: size * 0.42,
+      }}
+    >
+      {initial}
+    </div>
+  )
+}
 
 export const CloseBtn = ({ onClick }: { onClick: () => void }) => (
   <button onClick={onClick} className="flex h-7 w-7 items-center justify-center rounded-full text-bone/50 hover:bg-white/10 hover:text-bone" aria-label="Tutup">✕</button>
@@ -57,10 +78,10 @@ export const PanelHead = ({ title, right, sub }: { title: ReactNode; right?: Rea
 )
 
 export const Modal = ({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) => (
-  <div className="pointer-events-auto fixed inset-0 z-50 flex items-center justify-center bg-black/50" onMouseDown={onClose}>
-    <div className={`panel rise max-h-[88vh] text-bone ${wide ? 'w-[min(1100px,94vw)]' : 'w-[min(520px,94vw)]'}`} onMouseDown={(e) => e.stopPropagation()}>
-      <div className="border-b border-line"><PanelHead title={title} right={<CloseBtn onClick={onClose} />} /></div>
-      <div className="max-h-[calc(88vh-56px)] overflow-y-auto">{children}</div>
+  <div className="pointer-events-auto fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4" onMouseDown={onClose}>
+    <div className={`panel rise max-h-[calc(100dvh-20px)] sm:max-h-[88vh] flex flex-col text-bone shadow-2xl ${wide ? 'w-[min(1100px,calc(100vw-16px))]' : 'w-[min(540px,calc(100vw-16px))]'}`} onMouseDown={(e) => e.stopPropagation()}>
+      <div className="border-b border-line shrink-0"><PanelHead title={title} right={<CloseBtn onClick={onClose} />} /></div>
+      <div className="flex-1 min-h-0 overflow-y-auto">{children}</div>
     </div>
   </div>
 )

@@ -14,6 +14,9 @@ export class AuthService {
   async signUp(body: SignUpDto) {
     // Admin platform = pendaftar pertama selama belum ada admin aktif (pola "user pertama = superAdmin" Musyan)
     const activeAdmins = await this.prisma.user.count({ where: { isSuperAdmin: true, deletedAt: null } });
+    if (activeAdmins > 0) {
+      throw new BadRequestException('Pendaftaran publik dinonaktifkan. Silakan masuk menggunakan akun administrator atau minta undangan dari pemilik office.');
+    }
     const { user } = await auth.api.signUpEmail({
       body: { email: body.email.toLowerCase(), password: body.password, name: body.name },
     });

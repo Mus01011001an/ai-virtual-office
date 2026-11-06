@@ -1,33 +1,57 @@
 // Diskusi CEO ↔ employee ("Kumpulkan tim").
 
+enum DiscussionMode {
+  GUIDED
+  AUTONOMOUS_DEBATE
+}
+
+enum MessageStance {
+  PROPOSE
+  CRITIQUE
+  SUPPORT
+  SYNTHESIZE
+  QUESTION
+  NEUTRAL
+}
+
 model Discussion {
-  id             String    @id @default(uuid())
+  id             String         @id @default(uuid())
   companyId      String
   startedById    String
   /// employee id peserta
-  participantIds String[]  @default([])
+  participantIds String[]       @default([])
+  title          String         @default("Diskusi Tim")
+  mode           DiscussionMode @default(GUIDED)
+  maxRounds      Int            @default(3)
+  currentRound   Int            @default(1)
+  consensusScore Int            @default(0)
+  whiteboardData Json           @default("{\"topic\":\"\",\"points\":[],\"actionItems\":[],\"summary\":\"\"}")
   endedAt        DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   company  Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
   messages DiscussionMessage[]
 
   @@index([companyId, createdAt])
+  @@index([companyId, mode])
   @@map("discussion")
 }
 
 model DiscussionMessage {
-  id           String     @id @default(uuid())
+  id           String        @id @default(uuid())
   companyId    String
   discussionId String
   /// user | employee | system
-  fromType     String     @default("user")
+  fromType     String        @default("user")
   fromId       String?
-  text         String     @default("") @db.Text
-  isDemo       Boolean    @default(false)
-  createdAt    DateTime   @default(now())
-  discussion   Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  stance       MessageStance @default(NEUTRAL)
+  text         String        @default("") @db.Text
+  turnIndex    Int           @default(0)
+  inReplyToId  String?
+  isDemo       Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  discussion   Discussion    @relation(fields: [discussionId], references: [id], onDelete: Cascade)
 
   @@index([discussionId, createdAt])
   @@index([companyId, createdAt])

@@ -6,17 +6,21 @@ enum OfficeTemplate {
 }
 
 model OfficeProfile {
-  id        String         @id @default(uuid())
-  companyId String         @unique
-  template  OfficeTemplate @default(EMPTY)
-  timezone  String         @default("Asia/Jakarta")
-  workStart String         @default("09:00")
-  workEnd   String         @default("18:00")
-  /// [{ start: "12:00", end: "13:00" }]
-  breaks    Json           @default("[{\"start\":\"12:00\",\"end\":\"13:00\"}]")
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
-  company   Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  id                 String         @id @default(uuid())
+  companyId          String         @unique
+  template           OfficeTemplate @default(EMPTY)
+  timezone           String         @default("Asia/Jakarta")
+  workStart          String         @default("09:00")
+  workEnd            String         @default("18:00")
+  workdays           Int[]          @default([1, 2, 3, 4, 5])
+  /// [{ "name": "Coffee break", "start": "10:30", "end": "10:45" }, { "name": "Istirahat siang", "start": "12:00", "end": "13:00" }, { "name": "Afternoon break", "start": "15:30", "end": "15:45" }]
+  breaks             Json           @default("[{\"name\":\"Coffee break\",\"start\":\"10:30\",\"end\":\"10:45\"},{\"name\":\"Istirahat siang\",\"start\":\"12:00\",\"end\":\"13:00\"},{\"name\":\"Afternoon break\",\"start\":\"15:30\",\"end\":\"15:45\"}]")
+  standupTime        String         @default("09:00")
+  autoStandupEnabled Boolean        @default(true)
+  proactiveEnabled   Boolean        @default(true)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  company            Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@map("office_profile")
 }

@@ -36,6 +36,10 @@ model Employee {
   deskIndex    Int
   /// skin/hair/hairStyle/top/bottom/shoes/height/glasses/jacket (frontend lib/appearance.ts)
   appearance   Json           @default("{}")
+  /// Konfigurasi profil suara unik: { "voiceId": string, "pitch": number, "rate": number, "gender": "male"|"female"|"neutral", "provider": "webspeech" }
+  voiceProfile Json           @default("{\"pitch\":1.0,\"rate\":1.0,\"gender\":\"neutral\",\"provider\":\"webspeech\"}")
+  activeSessionIndex Int        @default(1)
+  accumulatedSummary String?    @db.Text
   status       EmployeeStatus @default(IDLE)
   slot         Int?
   currentTask  String?
@@ -48,10 +52,15 @@ model Employee {
   updatedAt    DateTime       @updatedAt
   deletedAt    DateTime?
 
-  company    Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  aiProvider AiProvider?        @relation(fields: [providerId], references: [id], onDelete: SetNull)
-  tasks      Task[]
-  activities EmployeeActivity[]
+  company      Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  aiProvider   AiProvider?        @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  tasks        Task[]
+  activities   EmployeeActivity[]
+  artifacts    Artifact[]
+  usageRecords UsageRecord[]
+  approvals    ApprovalRequest[]
+  files        AgentFile[]
+  sessionMemories AgentSessionMemory[]
 
   @@index([companyId, status])
   @@index([companyId, deletedAt])
@@ -74,9 +83,12 @@ model Task {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
-  company  Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  employee Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  events   TaskEvent[]
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee     Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  events       TaskEvent[]
+  artifacts    Artifact[]
+  usageRecords UsageRecord[]
+  approvals    ApprovalRequest[]
 
   @@index([companyId, status])
   @@index([employeeId, createdAt])
@@ -113,4 +125,184 @@ model EmployeeActivity {
   @@index([employeeId, createdAt])
   @@index([companyId, createdAt])
   @@map("employee_activity")
+}
+
+model Artifact {
+  id          String   @id @default(uuid())
+  companyId   String
+  employeeId  String?
+  taskId      String?
+  name        String   @default("")
+  mimeType    String   @default("text/plain")
+  size        Int      @default(0)
+  s3Key       String   @default("")
+  url         String?  @db.Text
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  task     Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, createdAt])
+  @@index([employeeId, createdAt])
+  @@index([taskId])
+  @@map("artifact")
+}
+
+model UsageRecord {
+  id               String   @id @default(uuid())
+  companyId        String
+  employeeId       String?
+  taskId           String?
+  providerId       String?
+  model            String   @default("")
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  totalTokens      Int      @default(0)
+  estimatedCost    Float    @default(0.0)
+  durationMs       Int      @default(0)
+  createdAt        DateTime @default(now())
+
+  company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee   Employee?   @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  task       Task?       @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  aiProvider AiProvider? @relation(fields: [providerId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, createdAt])
+  @@index([employeeId, createdAt])
+  @@index([taskId])
+  @@map("usage_record")
+}
+
+model StandupReport {
+  id          String   @id @default(uuid())
+  companyId   String
+  date        String
+  summary     String   @db.Text
+  attendees   String[] @default([])
+  /// [{ "employeeId": string, "name": string, "yesterday": string, "today": string, "blockers": string }]
+  reports     Json     @default("[]")
+  createdAt   DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, date])
+  @@index([companyId, createdAt])
+  @@map("standup_report")
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum ApprovalRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum WebhookChannel {
+  TELEGRAM
+  DISCORD
+  SLACK
+  GENERIC_HTTP
+}
+
+model ApprovalRequest {
+  id           String            @id @default(uuid())
+  companyId    String
+  taskId       String?
+  employeeId   String?
+  toolName     String
+  riskLevel    ApprovalRiskLevel @default(MEDIUM)
+  status       ApprovalStatus    @default(PENDING)
+  title        String            @default("")
+  description  String?           @db.Text
+  inputPayload Json              @default("{}")
+  outputResult Json?
+  reviewerId   String?
+  reviewNote   String?           @db.Text
+  expiresAt    DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  task     Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  employee Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, status])
+  @@index([taskId])
+  @@index([employeeId])
+  @@index([companyId, createdAt])
+  @@map("approval_request")
+}
+
+model WebhookConfig {
+  id          String         @id @default(uuid())
+  companyId   String
+  channel     WebhookChannel
+  name        String         @default("")
+  url         String         @db.Text
+  /// Token atau secret HMAC terenkripsi (AES-256)
+  secret      String?        @db.Text
+  events      String[]       @default([])
+  isActive    Boolean        @default(true)
+  metadata    Json           @default("{}")
+  createdById String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, channel])
+  @@index([companyId, isActive])
+  @@map("webhook_config")
+}
+
+// File virtual Antigravity-style per agent (PERSONA.md, RULES.md, skills/*.md, KNOWLEDGE.md, config.json)
+model AgentFile {
+  id         String   @id @default(uuid())
+  employeeId String
+  companyId  String
+  path       String   // e.g. "PERSONA.md", "RULES.md", "skills/code-review.md", "KNOWLEDGE.md"
+  name       String   // display name
+  content    String   @db.Text
+  fileType   String   @default("markdown") // "markdown" | "json" | "text"
+  isReadonly Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, path])
+  @@index([employeeId])
+  @@index([companyId])
+  @@map("agent_file")
+}
+
+// Memori jangka panjang permanen agent (Episodic context summary & past milestones)
+model AgentSessionMemory {
+  id             String    @id @default(uuid())
+  employeeId     String
+  companyId      String
+  sessionIndex   Int       @default(1)
+  summaryContext String    @db.Text // Rangkuman milestone, keputusan, dan hasil kerja
+  tokenCount     Int       @default(0)
+  resetReason    String?   // "manual_reset" | "context_threshold" | "shift_change"
+  lastTaskTitle  String?
+  createdAt      DateTime  @default(now())
+
+  employee       Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([companyId])
+  @@map("agent_session_memory")
 }

@@ -215,17 +215,38 @@ export class MembershipService {
   async createAccount(
     companyId: string,
     inviterUserId: string,
-    dto: { name: string; email: string; password: string; roleId?: string },
+    dto: { name: string; email: string; password: string; roleId?: string; permissions?: string[] },
   ) {
     const email = dto.email?.trim().toLowerCase();
     if (!dto.name?.trim() || !email || !dto.password || dto.password.length < 8) {
       throw new BadRequestException('Nama, email, dan password (min. 8 karakter) wajib diisi');
     }
-    await this.assertRoleInCompany(companyId, dto.roleId);
+
+    let roleId = dto.roleId;
+
+    // Jika admin menyertakan daftar permission khusus, buatkan custom role terisolasi untuk anggota ini
+    if (dto.permissions && dto.permissions.length > 0) {
+      const customRoleName = `Custom: ${dto.name.trim()}`;
+      const role = await this.prisma.role.create({
+        data: {
+          name: customRoleName,
+          description: `Hak akses kustom untuk ${dto.name.trim()}`,
+          companyId,
+          isDefault: false,
+        },
+      });
+      await this.prisma.rolePermission.createMany({
+        data: dto.permissions.map((p) => ({ roleId: role.id, permission: p })),
+      });
+      roleId = role.id;
+    } else {
+      await this.assertRoleInCompany(companyId, roleId);
+    }
+
     const exists = await this.prisma.user.findUnique({ where: { email } });
     if (exists) throw new BadRequestException('Email sudah terdaftar — gunakan undang anggota');
     const { user } = await auth.api.signUpEmail({ body: { email, password: dto.password, name: dto.name.trim() } });
     await this.prisma.user.update({ where: { id: user.id }, data: { mustChangePassword: true } });
-    return this.invite(companyId, inviterUserId, { userId: user.id, roleId: dto.roleId });
+    return this.invite(companyId, inviterUserId, { userId: user.id, roleId });
   }
 }

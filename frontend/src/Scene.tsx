@@ -11,15 +11,24 @@ import { Lighting } from './office/Lighting'
 import { Effects } from './office/Effects'
 import { TimeTicker } from './office/TimeTicker'
 import { Clocks, DeskScreens, ServerLeds, Signs, StatusBoard, VideoWall } from './office/Props'
+import { Whiteboard } from './office/Whiteboard'
 import { Interaction } from './office/Interaction'
 import { GatherController } from './office/Gather'
+import { ScheduleController } from './office/ScheduleController'
+import { SpatialAudioController } from './office/SpatialAudioController'
 import { Player } from './characters/Player'
 import { Agent } from './characters/Agent'
+import { RemotePlayer } from './characters/RemotePlayer'
 import { CameraRig } from './camera/CameraRig'
 
 function Agents() {
   const ids = useOffice(useShallow((s) => s.employees.map((e) => e.id)))
   return <>{ids.map((id) => <Agent key={id} id={id} />)}</>
+}
+
+function RemotePlayers() {
+  const remoteUsers = useOffice((s) => s.remoteUsers)
+  return <>{remoteUsers.map((u) => <RemotePlayer key={u.userId} data={u} />)}</>
 }
 
 export function Scene({ officeKey }: { officeKey: string }) {
@@ -44,15 +53,19 @@ export function Scene({ officeKey }: { officeKey: string }) {
           <Building />
           <Colliders />
           <Player />
+          <RemotePlayers />
           <Agents />
           <DeskScreens />
           <Clocks />
           <Signs />
           <StatusBoard />
           <VideoWall />
+          <Whiteboard />
           <ServerLeds />
           <Interaction />
           <GatherController />
+          <ScheduleController />
+          <SpatialAudioController />
           <CameraRig />
         </Physics>
         {q.post && <Effects quality={quality} />}

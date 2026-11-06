@@ -8,7 +8,7 @@
  */
 import { useOffice } from './store'
 import { systemMsg } from './gather'
-import { assignTask } from './remote'
+import { assignTask, sendDiscussionMessage } from './remote'
 import type { Employee } from './types'
 import { uid } from '../lib/rng'
 
@@ -122,7 +122,8 @@ export function sendMessage(raw: string) {
       else void assignTask(e.id, title, 'discussion').catch(() => systemMsg(`Gagal membuat task untuk ${e.name}`))
     }
     if (!e.isDemo) {
-      systemMsg(`${e.name} belum terhubung ke AI engine — pesan dicatat${isTask && primary ? ' & task masuk antrean' : ''}. Balasan nyata aktif setelah backend Phase 3.`)
+      setBubble(e.id, '…')
+      void sendDiscussionMessage(text)
       return
     }
     const start = 500 + i * 900 + Math.random() * 400

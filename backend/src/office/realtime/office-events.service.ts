@@ -4,7 +4,12 @@ import { Observable, Subject, interval, map, merge, filter, finalize } from 'rxj
 export type OfficeEventType =
   | 'employee.created' | 'employee.updated' | 'employee.deleted'
   | 'activity.created' | 'task.event'
-  | 'discussion.message' | 'office.updated';
+  | 'discussion.message' | 'office.updated'
+  | 'artifact.created'
+  | 'whiteboard.updated' | 'discussion.concluded'
+  | 'schedule.transition' | 'standup.started' | 'standup.item' | 'standup.completed'
+  | 'presence.update'
+  | 'approval.requested' | 'approval.decided' | 'integration.event';
 
 interface OfficeEvent { companyId: string; type: OfficeEventType; data: unknown }
 

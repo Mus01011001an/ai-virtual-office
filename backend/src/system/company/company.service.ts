@@ -3,6 +3,7 @@ import { UserSession } from '@thallesp/nestjs-better-auth';
 import { DatabaseService } from 'src/database/database.service';
 import { ActivityService } from 'src/system/activity/activity.service';
 import { DEFAULT_OFFICE_ROLES } from 'src/system/role-permission/permission.definitions';
+import { auth } from 'src/lib/auth';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 
@@ -11,9 +12,8 @@ const isValidTimezone = (tz: string) => {
 };
 
 /**
- * Office = Company (pola company.service Musyan, dipangkas).
- * Membuat office: company + OfficeProfile + role default (Owner/Manager/Member/Viewer) + pembuat jadi Owner,
- * lalu sesi pembuat langsung pindah ke office baru ("Sesi baru").
+ * Office = Company (pola company.service Musyan).
+ * Mendukung pembuatan mandiri atau provisioning untuk SuperAdmin/Owner klien baru.
  */
 @Injectable()
 export class CompanyService {
@@ -23,6 +23,25 @@ export class CompanyService {
     const userId = session.user.id;
     const timezone = dto.timezone ?? 'Asia/Jakarta';
     if (!isValidTimezone(timezone)) throw new BadRequestException('Timezone tidak valid');
+
+    let ownerUserId = userId;
+    let isProvisionedForOther = false;
+
+    if (dto.owner?.email) {
+      isProvisionedForOther = true;
+      const email = dto.owner.email.trim().toLowerCase();
+      let targetUser = await this.prisma.user.findUnique({ where: { email } });
+      if (!targetUser) {
+        const { user } = await auth.api.signUpEmail({
+          body: { email, password: dto.owner.password, name: dto.owner.name.trim() },
+        });
+        targetUser = await this.prisma.user.update({
+          where: { id: user.id },
+          data: { mustChangePassword: true },
+        });
+      }
+      ownerUserId = targetUser.id;
+    }
 
     const company = await this.prisma.$transaction(async (tx) => {
       const c = await tx.company.create({ data: { name: dto.name.trim(), createdById: userId } });
@@ -35,19 +54,29 @@ export class CompanyService {
         await tx.rolePermission.createMany({ data: r.permissions.map((permission) => ({ roleId: role.id, permission })) });
         if (r.name === 'Owner') ownerRoleId = role.id;
       }
-      const hasDefault = await tx.companyMember.count({ where: { userId, isDefault: true } });
+      const hasDefault = await tx.companyMember.count({ where: { userId: ownerUserId, isDefault: true } });
       await tx.companyMember.create({
-        data: { companyId: c.id, userId, roleId: ownerRoleId, isOwner: true, isDefault: hasDefault === 0, invitationStatus: 'accepted' },
+        data: { companyId: c.id, userId: ownerUserId, roleId: ownerRoleId, isOwner: true, isDefault: hasDefault === 0, invitationStatus: 'accepted' },
       });
+
+      // Jika dibuatkan untuk orang lain, tambahkan juga pembuat (admin) sebagai Owner/Supervisor
+      if (isProvisionedForOther && userId !== ownerUserId) {
+        await tx.companyMember.create({
+          data: { companyId: c.id, userId, roleId: ownerRoleId, isOwner: true, isDefault: false, invitationStatus: 'accepted' },
+        });
+      }
+
       return c;
     });
 
-    // pindahkan sesi ke office baru
-    await this.prisma.session.updateMany({ where: { token: session.session.token }, data: { activeCompanyId: company.id } });
-    await this.prisma.user.update({ where: { id: userId }, data: { lastActiveCompanyId: company.id, companyId: company.id } });
+    if (!isProvisionedForOther) {
+      // Pindahkan sesi pembuat ke office baru jika dibuat untuk diri sendiri
+      await this.prisma.session.updateMany({ where: { token: session.session.token }, data: { activeCompanyId: company.id } });
+      await this.prisma.user.update({ where: { id: userId }, data: { lastActiveCompanyId: company.id, companyId: company.id } });
+    }
 
     await this.activity.log(company.id, userId).action('CREATE_OFFICE').subject('Company', company.id)
-      .description(`Membuat office ${company.name}`).save();
+      .description(`Membuat office ${company.name}${isProvisionedForOther ? ' (Provisioned)' : ''}`).save();
     return this.findOne(company.id);
   }
 

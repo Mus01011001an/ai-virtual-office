@@ -52,11 +52,11 @@ export class MembershipController {
 
   @Post('create-account')
   @Permission(P_MEMBER_MANAGE)
-  @ApiOperation({ summary: 'Buat akun teman (password sementara) & tambahkan ke office aktif' })
+  @ApiOperation({ summary: 'Buat akun teman (password sementara) & tentukan hak akses di office aktif' })
   createAccount(
     @ActiveCompany() companyId: string,
     @Session() session: UserSession,
-    @Body() body: { name: string; email: string; password: string; roleId?: string },
+    @Body() body: { name: string; email: string; password: string; roleId?: string; permissions?: string[] },
   ) {
     return this.membershipService.createAccount(companyId, session.user.id, body);
   }

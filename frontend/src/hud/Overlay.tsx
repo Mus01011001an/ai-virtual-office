@@ -6,6 +6,8 @@ import { isTyping } from '../camera/input'
 import { toggleGatherAll, toggleSummon } from '../state/gather'
 import { enterOffice, signOut } from '../state/remote'
 import { AuthCard } from './Auth'
+import { speechRecognizer } from '../audio/speech-recognition'
+import { isTouchOrIPad } from '../camera/CameraRig'
 
 const anyPanel = (s: ReturnType<typeof useOffice.getState>) =>
   !!s.workstationId || s.newOfficeOpen || s.createEmployeeOpen
@@ -64,8 +66,11 @@ export function ControlsHint() {
   const show = useOffice((s) => s.showHints)
   const locked = useOffice((s) => s.locked)
   const mouseLook = useOffice((s) => s.mouseLook)
-  if (!show) return null
-  const items: [string, string][] = [['WASD', 'Gerak'], ['Shift', 'Lari'], ['V', 'Kamera'], ['Tab', 'Tim'], ['G', 'Kumpulkan'], ['Enter', 'Chat']]
+
+  // Sembunyikan otomatis pada mobile/touch agar tidak menabrak virtual joystick
+  const isTouch = typeof window !== 'undefined' && (isTouchOrIPad() || window.innerWidth < 1024)
+  if (!show || isTouch) return null
+  const items: [string, string][] = [['WASD', 'Gerak'], ['Shift', 'Lari'], ['V', 'Kamera'], ['Tab', 'Tim'], ['M', 'Peta'], ['G', 'Kumpulkan'], ['Enter', 'Chat']]
   if (mode === 'iso') items.push(['Klik', 'Jalan ke sana'], ['RMB', 'Putar'])
   else if (locked) items.push(['Klik', 'Pilih'], ['Alt', 'Lepas kursor'])
   else if (mode === 'tps' && !mouseLook) items.push(['RMB', 'Putar kamera'])
@@ -90,21 +95,51 @@ export function Hotkeys() {
       if (!st.entered || anyPanel(st)) return
       switch (e.code) {
         case 'AltLeft': case 'AltRight': e.preventDefault(); if (document.pointerLockElement) document.exitPointerLock(); break
-        case 'KeyV': st.cycleCamera(); break
+        case 'KeyC': st.cycleCamera(); break
+        case 'KeyV': {
+          e.preventDefault()
+          if (!st.isRecordingVoice) {
+            st.set({ isRecordingVoice: true })
+            speechRecognizer.setCallbacks({
+              onFinalResult: (text) => {
+                st.set({ dictatedText: text })
+              },
+              onStateChange: (rec) => {
+                st.set({ isRecordingVoice: rec })
+              },
+            })
+            speechRecognizer.start()
+          }
+          break
+        }
         case 'Digit1': st.set({ cameraMode: 'fps' }); break
         case 'Digit2': st.set({ cameraMode: 'tps' }); break
         case 'Digit3': st.set({ cameraMode: 'iso' }); break
         case 'Tab': st.set({ directoryOpen: !st.directoryOpen }); break
         case 'KeyN': st.set({ showNames: !st.showNames }); break
         case 'KeyH': st.set({ showHints: !st.showHints }); break
+        case 'KeyM': st.set({ showMinimap: !st.showMinimap }); break
         case 'KeyG': toggleGatherAll(); break
         case 'KeyQ': { const id = st.nearbyId ?? (runtime.pointerLocked ? st.hoveredId : null) ?? st.selectedId; if (id) toggleSummon(id); break }
         case 'KeyE': { const id = st.nearbyId ?? (runtime.pointerLocked ? st.hoveredId : null); if (id) { document.exitPointerLock?.(); st.set({ selectedId: id }) } break }
         case 'KeyF': { const id = st.nearbyId ?? (runtime.pointerLocked ? st.hoveredId : null) ?? st.selectedId; if (id) { document.exitPointerLock?.(); st.set({ workstationId: id, selectedId: id }) } break }
       }
     }
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'KeyV') {
+        const st = useOffice.getState()
+        if (st.isRecordingVoice) {
+          speechRecognizer.stop()
+          st.set({ isRecordingVoice: false })
+        }
+      }
+    }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('keyup', onKeyUp)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('keyup', onKeyUp)
+    }
   }, [])
   return null
 }

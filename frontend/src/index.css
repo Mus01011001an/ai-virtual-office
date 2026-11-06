@@ -34,3 +34,19 @@ input[type=range] { accent-color: var(--color-accent); }
 .rise { animation: rise 200ms cubic-bezier(.2,.8,.2,1) both; }
 @keyframes floaty { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 .floaty { animation: floaty 6s ease-in-out infinite; }
+
+@keyframes phoneRotate {
+  0%, 15% { transform: rotate(0deg); }
+  45%, 75% { transform: rotate(-90deg); }
+  90%, 100% { transform: rotate(0deg); }
+}
+.phone-rotate-anim {
+  animation: phoneRotate 3s ease-in-out infinite;
+}
+
+.safe-area-container {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}

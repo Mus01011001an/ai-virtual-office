@@ -2,18 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import { useOffice } from '../state/store'
 import { STATUS_META } from '../state/types'
 import { Avatar, DemoBadge, Modal, StatusPill, fmtTime } from './ui'
+import { AiConversationTab } from './workstation/AiConversationTab'
+import { FilesTab } from './workstation/FilesTab'
+import { PerformanceTab } from './workstation/PerformanceTab'
+import { AgentBrainStudioTab } from './workstation/AgentBrainStudioTab'
+import { ContextMemoryTab } from './workstation/ContextMemoryTab'
 
-const TABS = ['Overview', 'Terminal', 'Activity', 'AI Conversation', 'Tasks', 'Files', 'Performance'] as const
+const TABS = ['Overview', 'Brain Studio', 'Context & Memory', 'AI Conversation', 'Tasks', 'Files', 'Terminal', 'Activity', 'Performance'] as const
 type Tab = (typeof TABS)[number]
-
-const Pending = ({ what }: { what: string }) => (
-  <div className="flex h-64 flex-col items-center justify-center gap-2 text-center text-sm text-bone/45">
-    <div className="text-3xl">🛠️</div>
-    <div className="display text-[17px] text-bone/80">{what}</div>
-    <div className="label">Menunggu backend</div>
-    <div className="max-w-md text-xs">Data ini berasal dari backend (agent_messages / artifacts / usage_records). Tab aktif setelah AI Engine terhubung (Phase 3–4). Tidak ditampilkan data palsu.</div>
-  </div>
-)
 
 export function Workstation() {
   const id = useOffice((s) => s.workstationId)
@@ -29,13 +25,21 @@ export function Workstation() {
 
   return (
     <Modal title={`Workstation · ${e.name}`} onClose={close} wide>
-      <div className="flex min-h-[560px]">
-        <div className="w-48 shrink-0 border-r border-line p-2">
+      <div className="flex flex-col md:flex-row h-[min(620px,calc(100dvh-120px))]">
+        <div className="flex md:flex-col overflow-x-auto md:overflow-x-visible w-full md:w-48 shrink-0 border-b md:border-b-0 md:border-r border-line p-1.5 md:p-2 gap-1">
           {TABS.map((t) => (
-            <button key={t} onClick={() => setTab(t)} className={`mb-0.5 w-full rounded-xl px-3 py-2 text-left text-[13px] font-semibold transition-colors ${tab === t ? 'bg-white/[0.08] text-bone' : 'text-bone/50 hover:bg-white/[0.04] hover:text-bone/80'}`}>{t}</button>
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`shrink-0 md:w-full rounded-xl px-3 py-2 text-left text-[12.5px] sm:text-[13px] font-semibold transition-colors ${
+                tab === t ? 'bg-white/[0.08] text-bone' : 'text-bone/50 hover:bg-white/[0.04] hover:text-bone/80'
+              }`}
+            >
+              {t}
+            </button>
           ))}
         </div>
-        <div className="min-w-0 flex-1 p-5">
+        <div className="min-w-0 flex-1 p-3 sm:p-5 overflow-y-auto">
           {e.isDemo && <div className="mb-4 flex items-center gap-2 rounded-2xl bg-demo/10 px-3 py-2 text-xs text-demo"><DemoBadge /> Employee demo — aktivitas di bawah adalah simulasi Demo Mode, bukan eksekusi AI nyata.</div>}
           {tab === 'Overview' && (
             <div className="space-y-4 text-sm">
@@ -47,7 +51,7 @@ export function Workstation() {
                   <div className="mt-1"><StatusPill s={e.status} /></div>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {[['Provider', e.provider], ['Model', e.model], ['Meja', `#${e.deskIndex + 1}`], ['Task saat ini', e.currentTask ?? '—'], ['Tool', e.currentTool ?? '—'], ['Progress', `${Math.round(e.progress * 100)}%`]].map(([k, v]) => (
                   <div key={k} className="rounded-2xl bg-white/[0.05] p-3"><div className="label">{k}</div><div className="mt-0.5 truncate font-medium">{v}</div></div>
                 ))}
@@ -57,7 +61,7 @@ export function Workstation() {
             </div>
           )}
           {tab === 'Terminal' && (
-            <div ref={term} className="h-[480px] overflow-y-auto rounded-2xl border border-line bg-black/60 p-4 font-mono text-[12px] leading-relaxed">
+            <div ref={term} className="h-full min-h-[260px] max-h-[460px] overflow-y-auto rounded-2xl border border-line bg-black/60 p-4 font-mono text-[12px] leading-relaxed">
               {acts.filter((a) => a.kind === 'tool' || a.kind === 'output' || a.kind === 'error').map((a) => (
                 <div key={a.id} className={a.kind === 'tool' ? 'mt-2 text-cyan-300' : a.kind === 'error' ? 'text-red-300' : 'whitespace-pre text-emerald-100/85'}>{a.text}</div>
               ))}
@@ -85,9 +89,11 @@ export function Workstation() {
               {!tasks.length && <div className="text-bone/35">Belum ada task.</div>}
             </div>
           )}
-          {tab === 'AI Conversation' && <Pending what="Percakapan orchestrator ↔ model" />}
-          {tab === 'Files' && <Pending what="File/artifact hasil eksekusi" />}
-          {tab === 'Performance' && <Pending what="Token, biaya API, durasi, success rate" />}
+          {tab === 'Brain Studio' && <AgentBrainStudioTab employeeId={e.id} />}
+          {tab === 'Context & Memory' && <ContextMemoryTab employeeId={e.id} />}
+          {tab === 'AI Conversation' && <AiConversationTab employeeId={e.id} employeeName={e.name} isDemo={e.isDemo} />}
+          {tab === 'Files' && <FilesTab employeeId={e.id} employeeName={e.name} />}
+          {tab === 'Performance' && <PerformanceTab employeeId={e.id} employeeName={e.name} />}
           <div className="mt-4 text-[11px]" style={{ color: STATUS_META[e.status].color }}>● {STATUS_META[e.status].label}</div>
         </div>
       </div>
