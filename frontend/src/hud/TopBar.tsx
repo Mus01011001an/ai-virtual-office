@@ -183,8 +183,8 @@ export function TopBar() {
         <button
           onClick={() => set({ directoryOpen: !dirOpen })}
           title="Buka daftar AI Employee kantor"
-          className={`panel-soft flex h-9 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-semibold transition-colors ${
-            dirOpen ? 'bg-bone text-ink' : 'text-bone hover:bg-ink-2'
+          className={`flex h-9 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-semibold transition-colors ${
+            dirOpen ? 'bg-bone text-ink' : 'panel-soft text-bone hover:bg-ink-2'
           }`}
         >
           <span>Tim</span>
@@ -197,8 +197,8 @@ export function TopBar() {
         <button
           onClick={() => set({ brainOpen: !brainOpen, settingsOpen: false })}
           title="Otak Kantor — brief, keputusan & hasil kerja yang dibagi semua AI"
-          className={`panel-soft flex h-9 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-semibold transition-colors ${
-            brainOpen ? 'bg-bone text-ink' : 'text-bone hover:bg-ink-2'
+          className={`flex h-9 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-semibold transition-colors ${
+            brainOpen ? 'bg-bone text-ink' : 'panel-soft text-bone hover:bg-ink-2'
           }`}
         >
           <span>🧠</span>
