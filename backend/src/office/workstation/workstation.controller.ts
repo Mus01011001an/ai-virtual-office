@@ -1,4 +1,6 @@
-import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, Param, Post, Query } from '@nestjs/common';
+import { Session, UserSession } from '@thallesp/nestjs-better-auth';
+import { LOCKED_MSG } from '../employees/employee.service';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ActiveCompany } from 'src/common/decorators/active-company.decorator';
 import { RequiresCompany } from 'src/common/decorators/requires-company.decorator';
@@ -84,7 +86,9 @@ export class WorkstationController {
     @ActiveCompany() companyId: string,
     @Param('employeeId') employeeId: string,
     @Body() body: { path: string; content: string; name?: string },
+    @Session() s: UserSession,
   ) {
+    if (!(s.user as { isSuperAdmin?: boolean }).isSuperAdmin) throw new ForbiddenException(LOCKED_MSG);
     return this.bundleService.upsertFile(companyId, employeeId, body.path, body.content, body.name);
   }
 
@@ -94,7 +98,9 @@ export class WorkstationController {
     @ActiveCompany() companyId: string,
     @Param('employeeId') employeeId: string,
     @Query('path') path: string,
+    @Session() s: UserSession,
   ) {
+    if (!(s.user as { isSuperAdmin?: boolean }).isSuperAdmin) throw new ForbiddenException(LOCKED_MSG);
     return this.bundleService.deleteFile(companyId, employeeId, path);
   }
 

@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
 import { ApiAgentFile, deleteAgentFile, getAgentFiles, saveAgentFile } from '../../state/remote'
 import { Btn, Field, inputCls } from '../ui'
+import { useOffice } from '../../state/store'
 
 export function AgentBrainStudioTab({ employeeId }: { employeeId: string }) {
+  /** Persona AI dikelola administrator (Katalog AI) → office hanya bisa membaca. */
+  const locked = !useOffice((s) => !!s.me?.isSuperAdmin)
   const [files, setFiles] = useState<ApiAgentFile[]>([])
   const [activePath, setActivePath] = useState<string>('PERSONA.md')
   const [editorContent, setEditorContent] = useState<string>('')
@@ -43,6 +46,7 @@ export function AgentBrainStudioTab({ employeeId }: { employeeId: string }) {
   }
 
   const handleSave = async () => {
+    if (locked) return
     setSaving(true)
     setErr('')
     setNotice('')
@@ -58,6 +62,7 @@ export function AgentBrainStudioTab({ employeeId }: { employeeId: string }) {
   }
 
   const handleDelete = async (path: string) => {
+    if (locked) return
     if (!confirm(`Hapus berkas "${path}"?`)) return
     try {
       await deleteAgentFile(employeeId, path)
@@ -70,7 +75,7 @@ export function AgentBrainStudioTab({ employeeId }: { employeeId: string }) {
 
   const handleCreateFile = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newFilePath.trim()) return
+    if (locked || !newFilePath.trim()) return
     const path = newFilePath.trim().startsWith('skills/') || newFilePath.trim().endsWith('.md') || newFilePath.trim().endsWith('.json')
       ? newFilePath.trim()
       : `skills/${newFilePath.trim().replace(/\s+/g, '-').toLowerCase()}.md`
@@ -256,7 +261,7 @@ export function AgentBrainStudioTab({ employeeId }: { employeeId: string }) {
                 <span className="font-mono text-xs font-bold text-bone flex items-center gap-1.5">
                   <span className="text-accent">●</span> {activePath}
                 </span>
-                {currentFile?.isReadonly && (
+                {(locked || currentFile?.isReadonly) && (
                   <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-bone/50">
                     Read-only
                   </span>
@@ -266,7 +271,7 @@ export function AgentBrainStudioTab({ employeeId }: { employeeId: string }) {
                 variant="primary"
                 size="sm"
                 onClick={handleSave}
-                disabled={saving || currentFile?.isReadonly}
+                disabled={saving || (locked || currentFile?.isReadonly)}
               >
                 {saving ? 'Menyimpan…' : '💾 Simpan & Kompilasi'}
               </Btn>
@@ -277,7 +282,7 @@ export function AgentBrainStudioTab({ employeeId }: { employeeId: string }) {
               <textarea
                 value={editorContent}
                 onChange={(e) => setEditorContent(e.target.value)}
-                readOnly={currentFile?.isReadonly}
+                readOnly={(locked || currentFile?.isReadonly)}
                 className="w-full h-full resize-none rounded-xl bg-ink/60 border border-white/[0.06] p-3.5 font-mono text-xs leading-relaxed text-bone placeholder:text-bone/30 focus:border-accent/40 focus:outline-none"
                 placeholder="Tuliskan isi berkas dalam format Markdown atau JSON..."
                 spellCheck={false}

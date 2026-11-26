@@ -20,78 +20,26 @@ export function AuthCard() {
   }
 
   return (
-    <form
-      onSubmit={submit}
-      className="mt-6 w-[min(420px,92vw)] rounded-3xl border border-cyan-500/30 bg-[#0d111db8] p-6 sm:p-7 shadow-[0_0_50px_rgba(0,245,212,0.15)] backdrop-blur-2xl relative overflow-hidden"
-    >
-      {/* Scanline & subtle neon glow */}
-      <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent animate-pulse" />
-
-      <div className="mb-5 text-center">
-        <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3.5 py-1 text-xs font-mono font-bold tracking-wider text-cyan-300">
-          <span className="h-2 w-2 rounded-full bg-cyan-400 animate-ping" /> PLAYER TERMINAL LOGIN
-        </div>
-        <h2 className="mt-3 text-xl font-black tracking-tight text-white font-mono uppercase">
-          KONEKSI OFFICE
-        </h2>
-        <p className="mt-1 text-xs text-white/50">Masukkan username akun Anda untuk memulai petualangan virtual.</p>
+    <form onSubmit={submit} className="mt-6 w-[min(400px,92vw)] rounded-[28px] bg-white p-6 text-left text-slate-800 shadow-[0_8px_0_#c9d6ea,0_24px_48px_rgba(30,60,120,0.25)] sm:p-7">
+      <h2 className="font-display text-[22px] font-semibold text-slate-900">Masuk ke kantor</h2>
+      <p className="mt-0.5 text-[13px] text-slate-500">Pakai username atau email akunmu.</p>
+      <div className="mt-5 space-y-3">
+        <label className="block">
+          <span className="mb-1 block text-[12px] font-semibold text-slate-500">Username</span>
+          <input type="text" autoFocus required value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="mis. budi atau admin"
+            className="h-11 w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-3.5 text-[15px] text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-sky-400 focus:bg-white" />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-[12px] font-semibold text-slate-500">Password</span>
+          <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
+            className="h-11 w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-3.5 text-[15px] text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-sky-400 focus:bg-white" />
+        </label>
       </div>
-
-      <div className="space-y-3.5">
-        <div>
-          <label className="text-[11px] font-mono uppercase tracking-wider text-cyan-300/80 block mb-1.5 font-bold">
-            [USERNAME / ID]
-          </label>
-          <input
-            type="text"
-            className="w-full rounded-xl border border-white/10 bg-black/40 px-3.5 py-2.5 text-sm font-mono text-white placeholder-white/25 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400 transition-all"
-            value={identifier}
-            onChange={(e) => setIdentifier(e.target.value)}
-            placeholder="mis. budi atau admin"
-            autoFocus
-            required
-          />
-        </div>
-        <div>
-          <label className="text-[11px] font-mono uppercase tracking-wider text-cyan-300/80 block mb-1.5 font-bold">
-            [PASSWORD KODE]
-          </label>
-          <input
-            type="password"
-            className="w-full rounded-xl border border-white/10 bg-black/40 px-3.5 py-2.5 text-sm font-mono text-white placeholder-white/25 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400 transition-all"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-            required
-          />
-        </div>
-      </div>
-
-      {err && (
-        <div className="mt-3.5 rounded-xl border border-rose-500/30 bg-rose-500/15 px-3 py-2 text-xs font-mono text-rose-300">
-          ⚠️ {err}
-        </div>
-      )}
-
-      <button
-        type="submit"
-        disabled={busy}
-        className="mt-6 h-12 w-full rounded-2xl bg-gradient-to-r from-cyan-400 via-teal-400 to-emerald-400 text-sm font-black font-mono tracking-wider text-slate-950 uppercase transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-60 shadow-[0_0_25px_rgba(0,245,212,0.4)] cursor-pointer flex items-center justify-center gap-2"
-      >
-        {busy ? (
-          <span>MENYAMBUNGKAN REALM…</span>
-        ) : (
-          <>
-            <span>MASUK KANTOR</span>
-            <span className="text-base">➔</span>
-          </>
-        )}
+      {err && <div className="mt-3 rounded-2xl bg-rose-50 px-3 py-2 text-[12.5px] text-rose-600">{err}</div>}
+      <button type="submit" disabled={busy}
+        className="mt-5 h-12 w-full rounded-2xl bg-[#22c55e] font-display text-[17px] font-semibold text-white shadow-[0_5px_0_#15803d] transition-transform hover:brightness-105 active:translate-y-[3px] active:shadow-[0_2px_0_#15803d] disabled:opacity-60">
+        {busy ? 'Menyambungkan…' : 'Main sekarang'}
       </button>
-
-      <div className="mt-4 flex items-center justify-between text-[10.5px] font-mono text-white/40">
-        <span>STATUS: SYSTEM READY</span>
-        <span>SECURE ACCESS</span>
-      </div>
     </form>
   )
 }

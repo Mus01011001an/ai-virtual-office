@@ -133,7 +133,7 @@ export function Agent({ id }: { id: string }) {
       </group>
       {(selected || hovered || nearby) && !hidden && <mesh geometry={ringGeo} material={ringMat} position={[0, 0.03, 0]} />}
       {(showNames || !!bubble) && !hidden && (
-        <NameTag y={2.05 * s} name={e.name} role={e.role} status={e.status} tool={e.currentTool} progress={e.progress}
+        <NameTag y={1.98 * s} name={e.name} role={e.role} status={e.status} tool={e.currentTool} progress={e.progress}
           highlight={selected || hovered || nearby} demo={e.isDemo} bubble={bubble} />
       )}
     </group>

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { ActivityService } from 'src/system/activity/activity.service';
@@ -13,8 +13,10 @@ export const DESK_COUNT = 36;
 const SELECT = {
   id: true, name: true, role: true, department: true, provider: true, providerId: true, model: true, skills: true,
   systemPrompt: true, deskIndex: true, appearance: true, status: true, slot: true, currentTask: true, currentTool: true,
-  progress: true, isDemo: true, createdAt: true, updatedAt: true, deletedAt: true,
+  progress: true, isDemo: true, templateId: true, createdAt: true, updatedAt: true, deletedAt: true,
 } satisfies Prisma.EmployeeSelect;
+
+export const LOCKED_MSG = 'AI ditambahkan & diatur oleh administrator lewat Katalog AI. Office cukup memakai AI dari katalog.';
 
 @Injectable()
 export class EmployeeService {
@@ -68,7 +70,59 @@ export class EmployeeService {
     return row;
   }
 
-  async create(companyId: string, dto: CreateEmployeeDto, userId: string) {
+  /**
+   * Pakai AI dari katalog global. Persona, model, dan tampilan mengikuti template (dikelola superadmin).
+   * Bila AI yang sama pernah dipakai lalu dihapus ke sampah, dipulihkan (riwayat & memori tetap).
+   */
+  async createFromTemplate(companyId: string, templateId: string, userId: string) {
+    const t = await this.prisma.agentTemplate.findFirst({ where: { id: templateId, isActive: true }, include: { provider: true } });
+    if (!t) throw new NotFoundException('AI tidak ada di katalog');
+    const existing = await this.prisma.employee.findFirst({ where: { companyId, templateId }, orderBy: { createdAt: 'desc' } });
+    if (existing && !existing.deletedAt) return this.findOne(companyId, existing.id);
+    if (existing) return this.restore(companyId, existing.id, userId);
+
+    const deskIndex = await this.freeDesk(companyId);
+    const emp = await this.prisma.employee.create({
+      data: {
+        companyId, templateId: t.id, name: t.name, role: t.role, department: t.department, skills: t.skills,
+        systemPrompt: t.systemPrompt, appearance: t.appearance as Prisma.InputJsonValue, deskIndex,
+        providerId: t.provider && !t.provider.deletedAt ? t.provider.id : null,
+        provider: t.provider && !t.provider.deletedAt ? t.provider.name : '', model: t.model,
+        createdById: userId, updatedById: userId,
+      },
+      select: SELECT,
+    });
+    await this.feed(companyId, emp.id, 'info', `Bergabung sebagai ${emp.role}. Meja #${deskIndex + 1}.`);
+    await this.activity.log(companyId, userId).action('CREATE_EMPLOYEE').subject('Employee', emp.id).description(`Memakai ${emp.name} (${emp.role}) dari katalog`).save();
+    this.events.emit(companyId, 'employee.created', emp);
+    return emp;
+  }
+
+  /** Sinkronkan perubahan template katalog ke semua employee yang memakainya (lintas office). */
+  async syncFromTemplate(templateId: string) {
+    const t = await this.prisma.agentTemplate.findUnique({ where: { id: templateId }, include: { provider: true } });
+    if (!t) return 0;
+    const providerOk = t.provider && !t.provider.deletedAt;
+    const rows = await this.prisma.employee.findMany({ where: { templateId }, select: { id: true, companyId: true } });
+    if (!rows.length) return 0;
+    await this.prisma.employee.updateMany({
+      where: { templateId },
+      data: {
+        name: t.name, role: t.role, department: t.department, skills: t.skills, systemPrompt: t.systemPrompt,
+        appearance: t.appearance as Prisma.InputJsonValue, providerId: providerOk ? t.provider!.id : null,
+        provider: providerOk ? t.provider!.name : '', model: t.model,
+      },
+    });
+    const fresh = await this.prisma.employee.findMany({ where: { templateId, deletedAt: null }, select: SELECT });
+    for (const e of fresh) {
+      const companyId = rows.find((r) => r.id === e.id)?.companyId;
+      if (companyId) this.events.emit(companyId, 'employee.updated', e);
+    }
+    return rows.length;
+  }
+
+  async create(companyId: string, dto: CreateEmployeeDto, userId: string, isSuperAdmin = false) {
+    if (!isSuperAdmin) throw new ForbiddenException(LOCKED_MSG);
     const m = await this.resolveModel(companyId, dto.providerId, dto.model);
     const deskIndex = await this.freeDesk(companyId, dto.deskIndex);
     let emp;
@@ -103,7 +157,8 @@ export class EmployeeService {
     return emp;
   }
 
-  async update(companyId: string, id: string, dto: UpdateEmployeeDto, userId: string) {
+  async update(companyId: string, id: string, dto: UpdateEmployeeDto, userId: string, isSuperAdmin = false) {
+    if (!isSuperAdmin) throw new ForbiddenException(LOCKED_MSG);
     const cur = await this.findOne(companyId, id);
     if (cur.deletedAt) throw new BadRequestException('Employee ada di sampah');
     const data: Prisma.EmployeeUpdateInput = { updatedById: userId };

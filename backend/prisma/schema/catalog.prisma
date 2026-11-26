@@ -1,0 +1,67 @@
+// Katalog AI global (dikelola superadmin) + Otak Kantor (memori bersama per office) + setting sistem.
+// Office tidak membuat persona sendiri: cukup "pakai" AI dari katalog. Perubahan template mengalir ke
+// semua employee yang memakainya (templateId).
+
+model AgentTemplate {
+  id           String   @id @default(uuid())
+  /// slug unik, mis. "marketing-lead"
+  key          String   @unique
+  name         String   @default("")
+  role         String   @default("")
+  department   String   @default("")
+  /// satu kalimat untuk kartu katalog
+  tagline      String   @default("")
+  skills       String[] @default([])
+  systemPrompt String   @default("") @db.Text
+  /// nama tool yang boleh dipakai; kosong = semua tool dasar
+  tools        String[] @default([])
+  /// skin/hair/hairStyle/top/bottom/shoes/... (frontend lib/appearance.ts)
+  appearance   Json     @default("{}")
+  /// AI provider global (AiProvider.companyId = null)
+  providerId   String?
+  model        String   @default("")
+  isActive     Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  provider  AiProvider? @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  employees Employee[]
+
+  @@index([isActive, sortOrder])
+  @@map("agent_template")
+}
+
+/// Otak Kantor: satu memori bersama per office. Semua AI membaca & menulis ke sini sehingga konteks
+/// tidak hilang antar agen (brief, keputusan, hasil kerja, serah-terima).
+model BrainEntry {
+  id          String   @id @default(uuid())
+  companyId   String
+  employeeId  String?
+  /// brief | decision | note | result | handoff | asset
+  kind        String   @default("note")
+  title       String   @default("")
+  content     String   @db.Text
+  tags        String[] @default([])
+  pinned      Boolean  @default(false)
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, createdAt])
+  @@index([companyId, pinned])
+  @@map("brain_entry")
+}
+
+/// Setting level platform (mis. kredensial Higgsfield). Nilai terenkripsi (secret-box).
+model SystemSetting {
+  key         String   @id
+  valueEnc    String   @default("") @db.Text
+  hint        String?
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+
+  @@map("system_setting")
+}

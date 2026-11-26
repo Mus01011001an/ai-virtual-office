@@ -12,6 +12,10 @@ interface OfficeState {
   offices: Office[]
   currentOfficeId: string
   providersOpen: boolean
+  /** Admin platform (superadmin): katalog AI, provider global, Higgsfield */
+  adminOpen: boolean
+  /** Panel Otak Kantor (memori bersama tim) */
+  brainOpen: boolean
   whiteboardOpen: boolean
   debateMode: boolean
   whiteboard: WhiteboardState
@@ -89,10 +93,12 @@ export const useOffice = create<OfficeState>()(
       offices: [],
       currentOfficeId: '',
       providersOpen: false,
+      adminOpen: false,
+      brainOpen: false,
       cameraMode: 'tps',
       showNames: true,
       quality: 'medium',
-      ambience: 'night',
+      ambience: 'day',
       mouseLook: true,
       showHints: true,
       showMinimap: true,
@@ -182,10 +188,12 @@ export const useOffice = create<OfficeState>()(
     {
       name: 'avo-office',
       // v2: office & employee kini dari backend → buang data lokal lama (offices/customEmployees)
-      version: 2,
-      migrate: (persisted) => {
+      // v3: tampilan baru kantor terang → suasana di-reset ke siang sekali
+      version: 3,
+      migrate: (persisted, from) => {
         const { offices: _o, currentOfficeId: _c, customEmployees: _e, ...prefs } = (persisted ?? {}) as Record<string, unknown>
         void _o; void _c; void _e
+        if (from < 3) prefs.ambience = 'day'
         return prefs as never
       },
       partialize: (s) => ({
@@ -209,6 +217,7 @@ export const isUiBlocking = () => {
     s.ideModalOpen ||
     s.createEmployeeOpen ||
     s.providersOpen ||
+    s.adminOpen ||
     s.whiteboardOpen ||
     s.standupOpen ||
     s.scheduleConfigOpen ||

@@ -1,6 +1,7 @@
-import { can, useOffice } from '../state/store'
+import { useOffice } from '../state/store'
 import { STATUS_META } from '../state/types'
-import { Avatar, Btn, CloseBtn, PanelHead } from './ui'
+import { Btn, CloseBtn, PanelHead } from './ui'
+import { BlockyAvatar } from './BlockyAvatar'
 import { toggleSummon } from '../state/gather'
 
 export function Directory() {
@@ -39,11 +40,9 @@ export function Directory() {
           sub={`${active} sedang aktif`}
           right={
             <div className="flex items-center gap-1">
-              {(can('employee:write') || !useOffice.getState().me) && (
-                <Btn variant="primary" onClick={() => set({ createEmployeeOpen: true })}>
-                  + Rekrut
-                </Btn>
-              )}
+              <Btn variant="primary" onClick={() => set({ createEmployeeOpen: true })}>
+                + AI
+              </Btn>
               <Btn variant="ghost" onClick={() => set({ membersOpen: true })}>
                 + Teman
               </Btn>
@@ -62,7 +61,7 @@ export function Directory() {
                   sel ? 'bg-white/[0.08]' : 'hover:bg-white/[0.04]'
                 }`}
               >
-                <Avatar color={e.appearance.top} name={e.name} size={32} />
+                <BlockyAvatar ap={e.appearance} size={34} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 text-[13px] font-semibold">
                     {e.name}
@@ -99,7 +98,7 @@ export function Directory() {
           {!employees.length && (
             <div className="p-6 text-center text-xs text-bone/45">
               Office ini masih kosong.<br />
-              Klik <b className="text-accent">+ Rekrut</b> untuk menambah AI employee.
+              Klik <b className="text-accent">+ AI</b> untuk memilih AI dari katalog.
             </div>
           )}
         </div>

@@ -6,6 +6,14 @@ import { s3, getS3Bucket, getS3PermanentUrl } from 'src/common/infrastructure/s3
 import { SecureRunnerService } from '../../sandbox/secure-runner.service';
 import { GithubService } from '../../integrations/github.service';
 import { McpService } from '../../mcp/mcp.service';
+import { ModuleRef } from '@nestjs/core';
+import { BrainService } from '../../brain/brain.service';
+import { HiggsfieldService } from '../higgsfield.service';
+
+/** Tool kolaborasi otak kantor — selalu tersedia untuk semua agen. */
+export const BRAIN_TOOLS = ['brain_recall', 'brain_note', 'delegate_task'];
+const MAX_DELEGATION_DEPTH = 2;
+const MAX_DELEGATIONS_PER_10_MIN = 15;
 
 export interface ToolExecutionContext {
   companyId: string;
@@ -34,8 +42,180 @@ export class ToolRegistryService {
     @Optional() private readonly secureRunner?: SecureRunnerService,
     @Optional() private readonly githubService?: GithubService,
     @Optional() private readonly mcpService?: McpService,
+    @Optional() private readonly brain?: BrainService,
+    @Optional() private readonly higgsfield?: HiggsfieldService,
+    @Optional() private readonly moduleRef?: ModuleRef,
   ) {
     this.registerDefaults();
+    this.registerBrainTools();
+    this.registerHiggsfieldTools();
+  }
+
+  /** Otak kantor: ingat, catat, dan serahkan pekerjaan ke rekan (agen saling berkomunikasi). */
+  private registerBrainTools() {
+    this.register({
+      name: 'brain_recall',
+      description: 'Cari di Otak Kantor (memori bersama tim): brief, keputusan, hasil kerja rekan, aset yang sudah dibuat. Pakai sebelum memulai supaya tidak mengulang atau bertentangan.',
+      parameters: { type: 'object', properties: { query: { type: 'string', description: 'Kata kunci yang dicari' } }, required: ['query'] },
+      execute: async (args, ctx) => {
+        if (!this.brain) return 'Otak kantor tidak aktif.';
+        const rows = await this.brain.search(ctx.companyId, String(args.query || ''));
+        if (!rows.length) return 'Tidak ada catatan yang cocok di otak kantor.';
+        return rows.map((r) => `[${r.kind}] ${r.employee?.name ?? 'Tim'} · ${r.title}\n${r.content.slice(0, 900)}`).join('\n---\n');
+      },
+    });
+
+    this.register({
+      name: 'brain_note',
+      description: 'Simpan keputusan, fakta, atau insight penting ke Otak Kantor agar seluruh rekan AI dan manusia memakai konteks yang sama.',
+      parameters: {
+        type: 'object',
+        properties: {
+          kind: { type: 'string', enum: ['decision', 'note', 'handoff'], description: 'decision = keputusan, note = fakta/insight, handoff = catatan serah-terima' },
+          title: { type: 'string', description: 'Judul singkat' },
+          content: { type: 'string', description: 'Isi lengkap yang perlu diingat tim' },
+          tags: { type: 'array', items: { type: 'string' }, description: 'Tag opsional, mis. campaign, instagram' },
+        },
+        required: ['title', 'content'],
+      },
+      execute: async (args, ctx) => {
+        if (!this.brain) return 'Otak kantor tidak aktif.';
+        const kind = ['decision', 'note', 'handoff'].includes(String(args.kind)) ? (String(args.kind) as 'decision' | 'note' | 'handoff') : 'note';
+        const row = await this.brain.record({
+          companyId: ctx.companyId, employeeId: ctx.employeeId, kind,
+          title: String(args.title || 'Catatan'), content: String(args.content || ''),
+          tags: Array.isArray(args.tags) ? args.tags.map(String) : [],
+        });
+        return `Tersimpan di otak kantor (#${row.id.slice(0, 8)}). Semua rekan akan melihatnya.`;
+      },
+    });
+
+    this.register({
+      name: 'delegate_task',
+      description: 'Serahkan sebagian pekerjaan ke rekan AI lain di kantor (mis. minta Social Media Manager menjadwalkan posting, atau Visual Creator membuat gambar). Rekan langsung mengerjakannya dengan konteks otak kantor yang sama.',
+      parameters: {
+        type: 'object',
+        properties: {
+          colleague: { type: 'string', description: 'Nama atau role rekan yang dituju' },
+          title: { type: 'string', description: 'Judul pekerjaan' },
+          brief: { type: 'string', description: 'Brief lengkap: tujuan, konteks, format hasil yang diharapkan' },
+        },
+        required: ['colleague', 'title', 'brief'],
+      },
+      execute: async (args, ctx) => this.delegate(args, ctx),
+    });
+  }
+
+  private async delegate(args: Record<string, unknown>, ctx: ToolExecutionContext): Promise<string> {
+    if (!this.prisma) return 'Database tidak aktif.';
+    const who = String(args.colleague || '').trim();
+    const title = String(args.title || '').trim().slice(0, 200);
+    const brief = String(args.brief || '').trim();
+    if (!who || !title) return 'Sebutkan rekan dan judul pekerjaan.';
+
+    const parent = ctx.taskId ? await this.prisma.task.findUnique({ where: { id: ctx.taskId }, select: { source: true } }) : null;
+    const depth = parent?.source?.startsWith('delegation:') ? Number(parent.source.split(':')[1]) || 1 : 0;
+    if (depth >= MAX_DELEGATION_DEPTH) return 'Rantai delegasi sudah terlalu panjang — selesaikan sendiri dan catat hasilnya di otak kantor.';
+    const recent = await this.prisma.task.count({
+      where: { companyId: ctx.companyId, source: { startsWith: 'delegation' }, createdAt: { gt: new Date(Date.now() - 10 * 60_000) } },
+    });
+    if (recent >= MAX_DELEGATIONS_PER_10_MIN) return 'Batas delegasi kantor tercapai untuk saat ini. Lanjutkan sendiri.';
+
+    const team = await this.prisma.employee.findMany({
+      where: { companyId: ctx.companyId, deletedAt: null, isDemo: false, id: { not: ctx.employeeId } },
+      select: { id: true, name: true, role: true },
+    });
+    const q = who.toLowerCase();
+    const target = team.find((e) => e.name.toLowerCase() === q)
+      ?? team.find((e) => e.name.toLowerCase().includes(q) || q.includes(e.name.toLowerCase()))
+      ?? team.find((e) => e.role.toLowerCase().includes(q) || q.includes(e.role.toLowerCase()));
+    if (!target) return `Rekan "${who}" tidak ditemukan. Rekan yang ada: ${team.map((t) => `${t.name} (${t.role})`).join(', ') || '-'}.`;
+
+    const from = await this.prisma.employee.findUnique({ where: { id: ctx.employeeId }, select: { name: true } });
+    const task = await this.prisma.task.create({
+      data: {
+        companyId: ctx.companyId, employeeId: target.id, title,
+        description: `Delegasi dari ${from?.name ?? 'rekan'}:\n${brief}`,
+        source: `delegation:${depth + 1}`,
+      },
+    });
+    await this.prisma.taskEvent.create({ data: { taskId: task.id, to: 'QUEUED', note: `Didelegasikan oleh ${from?.name ?? 'rekan'}` } });
+    await this.prisma.employeeActivity.create({ data: { companyId: ctx.companyId, employeeId: target.id, kind: 'instruction', text: `${from?.name ?? 'Rekan'} minta: ${title}` } });
+    this.events?.emit(ctx.companyId, 'task.event', { task, to: 'QUEUED' });
+    await this.brain?.recordSafe({
+      companyId: ctx.companyId, employeeId: ctx.employeeId, kind: 'handoff',
+      title: `${from?.name ?? 'Rekan'} → ${target.name}: ${title}`, content: brief || title,
+    });
+    // Lazy-resolve untuk menghindari dependensi melingkar ToolRegistry ⇄ AgentRuntime.
+    try {
+      const { AgentRuntimeService } = await import('../agent-runtime.service');
+      const runtime = this.moduleRef?.get(AgentRuntimeService, { strict: false });
+      if (runtime) void runtime.processTask(ctx.companyId, task.id);
+    } catch (e: any) {
+      this.logger.warn(`Gagal memicu task delegasi ${task.id}: ${e.message}`);
+    }
+    return `Pekerjaan "${title}" diserahkan ke ${target.name} (${target.role}) dan sedang dikerjakan. Hasilnya akan masuk ke otak kantor.`;
+  }
+
+  /** Higgsfield: generasi gambar & video untuk konten marketing/sosmed. */
+  private registerHiggsfieldTools() {
+    this.register({
+      name: 'higgsfield_image',
+      description: 'Buat gambar berkualitas tinggi (foto produk, visual iklan, konten feed) dengan Higgsfield. Tulis prompt visual yang detail dalam bahasa Inggris.',
+      parameters: {
+        type: 'object',
+        properties: {
+          prompt: { type: 'string', description: 'Deskripsi visual detail (subjek, gaya, pencahayaan, komposisi) dalam bahasa Inggris' },
+          aspect_ratio: { type: 'string', enum: ['1:1', '4:3', '3:4', '16:9', '9:16', '2:3', '3:2'], description: '1:1 feed, 9:16 story/reels, 16:9 banner' },
+        },
+        required: ['prompt'],
+      },
+      execute: async (args, ctx) => {
+        if (!this.higgsfield) return 'Higgsfield tidak aktif.';
+        const prompt = String(args.prompt || '').trim();
+        const r = await this.higgsfield.generateImage(ctx, { prompt, aspect_ratio: args.aspect_ratio ? String(args.aspect_ratio) : undefined });
+        if (r.status !== 'completed') return `Gambar masih diproses Higgsfield (request ${r.requestId}). Lanjutkan pekerjaan lain dulu.`;
+        const urls = r.artifacts.map((a) => a.url).filter(Boolean) as string[];
+        await this.brain?.recordSafe({
+          companyId: ctx.companyId, employeeId: ctx.employeeId, kind: 'asset',
+          title: `Gambar: ${prompt.slice(0, 80)}`, content: `${urls.join('\n')}\nPrompt: ${prompt}`, tags: ['higgsfield', 'image'],
+        });
+        return `Gambar selesai dan tersimpan di Files: ${urls.join(', ')}`;
+      },
+    });
+
+    this.register({
+      name: 'higgsfield_video',
+      description: 'Buat video pendek (reels/TikTok/iklan) dengan Higgsfield, dari teks atau dari gambar (image_url). Proses beberapa menit; hasil otomatis masuk Files & otak kantor.',
+      parameters: {
+        type: 'object',
+        properties: {
+          prompt: { type: 'string', description: 'Deskripsi adegan & gerakan kamera dalam bahasa Inggris' },
+          image_url: { type: 'string', description: 'Opsional: URL gambar sebagai frame awal (image-to-video)' },
+          duration: { type: 'number', description: 'Durasi detik (5–15)' },
+          aspect_ratio: { type: 'string', enum: ['9:16', '16:9', '1:1'], description: '9:16 untuk reels/TikTok' },
+        },
+        required: ['prompt'],
+      },
+      execute: async (args, ctx) => {
+        if (!this.higgsfield) return 'Higgsfield tidak aktif.';
+        const prompt = String(args.prompt || '').trim();
+        const r = await this.higgsfield.generateVideo(ctx, {
+          prompt, image_url: args.image_url ? String(args.image_url) : undefined,
+          duration: args.duration ? Number(args.duration) : undefined, aspect_ratio: args.aspect_ratio ? String(args.aspect_ratio) : undefined,
+        }, (done) => {
+          void this.brain?.recordSafe({
+            companyId: ctx.companyId, employeeId: ctx.employeeId, kind: done.ok ? 'asset' : 'note',
+            title: done.ok ? `Video: ${prompt.slice(0, 80)}` : `Video gagal: ${prompt.slice(0, 60)}`,
+            content: done.ok ? `${done.url}\nPrompt: ${prompt}` : `Higgsfield: ${done.error}`, tags: ['higgsfield', 'video'],
+          });
+          void this.prisma?.employeeActivity.create({
+            data: { companyId: ctx.companyId, employeeId: ctx.employeeId, kind: done.ok ? 'done' : 'warn', text: done.ok ? `Video siap: ${prompt.slice(0, 60)}` : `Video gagal: ${done.error}` },
+          }).then((row) => this.events?.emit(ctx.companyId, 'activity.created', row)).catch(() => undefined);
+        });
+        return `Video sedang dibuat Higgsfield (${r.model}, request ${r.requestId}). Hasil otomatis masuk Files & otak kantor saat selesai.`;
+      },
+    });
   }
 
   private registerDefaults() {
@@ -258,8 +438,15 @@ export class ToolRegistryService {
     }));
   }
 
-  async getDefinitionsForCompany(companyId?: string) {
-    const baseTools = this.getDefinitions();
+  /**
+   * allowed = daftar tool dari template katalog AI. Kosong = semua tool dasar.
+   * Tool otak kantor selalu ikut; tool Higgsfield hanya bila diizinkan template.
+   */
+  async getDefinitionsForCompany(companyId?: string, allowed?: string[]) {
+    const all = this.getDefinitions();
+    const baseTools = allowed && allowed.length
+      ? all.filter((t) => allowed.includes(t.name) || BRAIN_TOOLS.includes(t.name))
+      : all.filter((t) => !t.name.startsWith('higgsfield_'));
     if (!companyId || !this.mcpService) return baseTools;
     try {
       const mcpTools = await this.mcpService.getActiveToolsForCompany(companyId);

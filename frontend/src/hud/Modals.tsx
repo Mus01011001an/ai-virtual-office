@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
-import { can, useOffice } from '../state/store'
-import { createOffice, providerCatalog, recruit, signOut, type CatalogEntry } from '../state/remote'
+import { useState } from 'react'
+import { useOffice } from '../state/store'
+import { createOffice, signOut } from '../state/remote'
 import { Btn, CloseBtn, Field, Modal, PanelHead, Segmented, Toggle, inputCls } from './ui'
 import { QUALITY } from '../lib/quality'
 import type { Ambience, CameraMode, Quality } from '../state/types'
@@ -85,91 +85,6 @@ export function NewOfficeModal() {
   )
 }
 
-/** Dropdown provider + model dari katalog AI provider office (diatur di halaman AI Provider). */
-export function ModelPicker({ value, onChange }: { value: { providerId: string; model: string }; onChange: (v: { providerId: string; model: string }) => void }) {
-  const [catalog, setCatalog] = useState<CatalogEntry[] | null>(null)
-  const set = useOffice((s) => s.set)
-  useEffect(() => {
-    let alive = true
-    providerCatalog().then((c) => {
-      if (!alive) return
-      setCatalog(c)
-      if (!value.providerId && c[0]) onChange({ providerId: c[0].providerId, model: c[0].defaultModel ?? c[0].models[0] ?? '' })
-    }).catch(() => setCatalog([]))
-    return () => { alive = false }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  if (catalog === null) return <div className="text-xs text-bone/45">Memuat model…</div>
-  if (!catalog.length) return (
-    <div className="rounded-2xl border border-dashed border-white/15 p-3 text-xs text-bone/60">
-      Belum ada AI provider. Tambahkan kredensial (mis. 9router / OpenRouter / OpenAI) dulu supaya employee bisa memilih model.
-      <div className="mt-2"><Btn variant="primary" onClick={() => set({ providersOpen: true, createEmployeeOpen: false })}>+ Tambah AI provider</Btn></div>
-    </div>
-  )
-  const cur = catalog.find((c) => c.providerId === value.providerId) ?? catalog[0]
-  return (
-    <div className="grid grid-cols-2 gap-3">
-      <Field label="AI provider">
-        <select className={inputCls} value={cur.providerId} onChange={(e) => {
-          const c = catalog.find((x) => x.providerId === e.target.value)!
-          onChange({ providerId: c.providerId, model: c.defaultModel ?? c.models[0] ?? '' })
-        }}>
-          {catalog.map((c) => <option key={c.providerId} value={c.providerId} className="bg-ink">{c.providerName}{c.healthy === false ? ' (gagal tes)' : ''}</option>)}
-        </select>
-      </Field>
-      <Field label="Model">
-        {cur.models.length
-          ? <select className={inputCls} value={value.model} onChange={(e) => onChange({ providerId: cur.providerId, model: e.target.value })}>
-              {cur.models.map((m) => <option key={m} value={m} className="bg-ink">{m}</option>)}
-            </select>
-          : <div className="text-xs text-amber-300">Provider ini belum punya model aktif — buka AI Provider → pilih model.</div>}
-      </Field>
-    </div>
-  )
-}
-
-export function CreateEmployeeModal() {
-  const open = useOffice((s) => s.createEmployeeOpen)
-  const st = useOffice()
-  const [f, setF] = useState({ name: '', role: '', department: 'Engineering', skills: '', systemPrompt: '' })
-  const [pm, setPm] = useState({ providerId: '', model: '' })
-  const [err, setErr] = useState('')
-  const [busy, setBusy] = useState(false)
-  if (!open) return null
-  const up = (k: keyof typeof f, v: string) => setF((o) => ({ ...o, [k]: v }))
-  const close = () => { st.set({ createEmployeeOpen: false }); setErr('') }
-  const submit = async () => {
-    if (!f.name.trim() || !f.role.trim()) return setErr('Nama dan role wajib diisi.')
-    setBusy(true); setErr('')
-    try {
-      const emp = await recruit({
-        name: f.name.trim(), role: f.role.trim(), department: f.department.trim(), systemPrompt: f.systemPrompt,
-        skills: f.skills.split(',').map((s) => s.trim()).filter(Boolean),
-        providerId: pm.providerId || undefined, model: pm.model || undefined,
-      })
-      st.set({ createEmployeeOpen: false, selectedId: emp.id })
-      setF({ ...f, name: '', role: '', skills: '', systemPrompt: '' })
-    } catch (e) { setErr((e as Error).message) } finally { setBusy(false) }
-  }
-  return (
-    <Modal title="Rekrut AI employee" onClose={close}>
-      <div className="grid grid-cols-2 gap-3 p-5 text-sm">
-        <Field label="Nama"><input autoFocus className={inputCls} value={f.name} onChange={(e) => up('name', e.target.value)} placeholder="Alex" /></Field>
-        <Field label="Role"><input className={inputCls} value={f.role} onChange={(e) => up('role', e.target.value)} placeholder="Senior DevOps Engineer" /></Field>
-        <Field label="Department"><input className={inputCls} value={f.department} onChange={(e) => up('department', e.target.value)} /></Field>
-        <Field label="Skills (pisah koma)"><input className={inputCls} value={f.skills} onChange={(e) => up('skills', e.target.value)} placeholder="Docker, Linux, Nginx" /></Field>
-        <div className="col-span-2"><ModelPicker value={pm} onChange={setPm} /></div>
-        <div className="col-span-2"><Field label="System instruction"><textarea rows={3} className={inputCls} value={f.systemPrompt} onChange={(e) => up('systemPrompt', e.target.value)} placeholder="You are a senior DevOps engineer responsible for…" /></Field></div>
-        <div className="col-span-2 rounded-2xl bg-white/[0.05] px-3 py-2 text-[11px] text-bone/70">Employee otomatis dapat karakter & meja, tersimpan di server. Eksekusi AI nyata aktif di Phase 3 (AI Engine) memakai model yang dipilih di sini.</div>
-        {err && <div className="col-span-2 rounded-xl bg-red-400/10 px-3 py-2 text-xs text-red-300">{err}</div>}
-        <div className="col-span-2 flex justify-end gap-2">
-          <Btn variant="ghost" size="md" onClick={close}>Batal</Btn>
-          <Btn variant="primary" size="md" onClick={submit}>{busy ? 'Menyimpan…' : 'Rekrut'}</Btn>
-        </div>
-      </div>
-    </Modal>
-  )
-}
-
 export function SettingsPanel() {
   const st = useOffice()
   if (!st.settingsOpen) return null
@@ -207,10 +122,10 @@ export function SettingsPanel() {
           <Toggle checked={st.showMinimap} onChange={(v) => st.set({ showMinimap: v })} label="Tampilkan radar peta" hint="Tombol M" />
           <Toggle checked={st.simulateSchedule} onChange={(v) => st.set({ simulateSchedule: v })} label="Ikuti jadwal kerja" hint="Di luar 09–18 employee demo pulang" />
         </div>
-        {can('ai.provider:read', st.me) && (
-          <button onClick={() => st.set({ providersOpen: true, settingsOpen: false })}
+        {st.me?.isSuperAdmin && (
+          <button onClick={() => st.set({ adminOpen: true, settingsOpen: false })}
             className="flex w-full items-center justify-between rounded-2xl bg-white/[0.05] px-3 py-2.5 text-left hover:bg-white/[0.08]">
-            <span><span className="block text-[13px] font-semibold">🔑 AI Provider</span><span className="block text-[11px] text-bone/45">Kredensial & model (9router, OpenAI, Claude…)</span></span>
+            <span><span className="block text-[13px] font-semibold">Admin platform</span><span className="block text-[11px] text-bone/45">Katalog AI, model, Higgsfield</span></span>
             <span className="text-bone/40">›</span>
           </button>
         )}

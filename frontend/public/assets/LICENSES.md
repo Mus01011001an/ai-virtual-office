@@ -11,3 +11,7 @@
 Font dibundel lewat npm (tidak ada CC0 yang setara kualitasnya; OFL tetap gratis tanpa atribusi di UI).
 
 Gedung, furnitur, dan karakter dibuat prosedural di kode (tanpa lisensi pihak ketiga).
+
+## Font
+
+- Fredoka (Google Fonts, SIL Open Font License 1.1) — dimuat via `<link>` di `frontend/index.html`, tidak disalin ke repo.

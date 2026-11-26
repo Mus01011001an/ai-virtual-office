@@ -4,6 +4,8 @@ import { decryptSecret } from 'src/common/utils/secret-box';
 import { API_KEY_PURPOSE } from '../ai-providers/provider-types';
 import { ProviderAdapterRegistry } from './adapters/provider-adapter.registry';
 import { ChatMessage } from './adapters/provider-adapter.interface';
+import { BrainService } from '../brain/brain.service';
+import { Optional } from '@nestjs/common';
 
 export interface GenerateOptions {
   temperature?: number;
@@ -19,6 +21,7 @@ export class AiEngineService {
   constructor(
     private readonly prisma: DatabaseService,
     private readonly adapterRegistry: ProviderAdapterRegistry,
+    @Optional() private readonly brain?: BrainService,
   ) {}
 
   /**
@@ -32,7 +35,7 @@ export class AiEngineService {
   ) {
     const employee = await this.prisma.employee.findFirst({
       where: { id: employeeId, companyId, deletedAt: null },
-      include: { aiProvider: true },
+      include: { aiProvider: true, template: { select: { systemPrompt: true } } },
     });
 
     if (!employee) {
@@ -56,10 +59,13 @@ export class AiEngineService {
       `- BISA BALAS LEBIH DARI 1X: Jika memiliki beberapa pemikiran atau penjelasan bertahap, pisahkan pesan dengan pembatas '---' di baris baru agar sistem mengirimkannya sebagai beberapa balon chat terpisah.\n` +
       `- MARKDOWN RAPI: Gunakan **bold**, *italic*, dan \`code\` secukupnya secara bersih dan proporsional.`;
 
+    // Persona dari katalog (bila ada) + Otak Kantor bersama → semua agen berbagi konteks yang sama.
+    const persona = employee.template?.systemPrompt?.trim() || employee.systemPrompt || '';
+    const brainCtx = this.brain ? await this.brain.buildContext(companyId, employee.id) : '';
     const systemPrompt =
-      `Anda adalah ${employee.name}, ${employee.role} di departemen ${employee.department}.\n` +
-      `Keahlian Anda: ${employee.skills.join(', ')}.\n` +
-      `${employee.systemPrompt || ''}\n` +
+      `Kamu adalah ${employee.name}, ${employee.role}${employee.department ? ` di tim ${employee.department}` : ''}.\n` +
+      (employee.skills.length ? `Keahlian: ${employee.skills.join(', ')}.\n` : '') +
+      `${persona}\n\n${brainCtx}\n\n` +
       `${communicationGuidelines}`;
 
     const messages: ChatMessage[] = [

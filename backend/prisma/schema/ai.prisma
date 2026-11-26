@@ -3,7 +3,8 @@
 
 model AiProvider {
   id              String    @id @default(uuid())
-  companyId       String
+  /// null = provider global milik platform (dikelola superadmin, dipakai katalog AI)
+  companyId       String?
   name            String    @default("")
   /// openai_compatible (9router, OpenRouter, Ollama, LM Studio, …) | openai | anthropic | google | deepseek
   type            String    @default("openai_compatible")
@@ -24,8 +25,9 @@ model AiProvider {
   updatedAt       DateTime  @updatedAt
   deletedAt       DateTime?
 
-  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company      Company?      @relation(fields: [companyId], references: [id], onDelete: Cascade)
   employees    Employee[]
+  templates    AgentTemplate[]
   usageRecords UsageRecord[]
 
   @@index([companyId, deletedAt])

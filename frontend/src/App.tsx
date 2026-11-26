@@ -22,7 +22,10 @@ import { McpModal } from './hud/McpModal'
 import { EscapeMenu } from './hud/EscapeMenu'
 import { IdeIntegrationModal } from './hud/IdeIntegrationModal'
 import { bootstrapSession } from './state/remote'
-import { CreateEmployeeModal, NewOfficeModal, SettingsPanel } from './hud/Modals'
+import { NewOfficeModal, SettingsPanel } from './hud/Modals'
+import { CatalogModal } from './hud/catalog/CatalogModal'
+import { AdminPanel } from './hud/admin/AdminPanel'
+import { BrainPanel } from './hud/brain/BrainPanel'
 import { ClickToPlay, ControlsHint, Crosshair, Hotkeys, InteractPrompt, LoadingBar, StartScreen } from './hud/Overlay'
 
 import { OrientationWarning } from './hud/OrientationWarning'
@@ -32,6 +35,7 @@ export default function App() {
   const entered = useOffice((s) => s.entered)
   const officeId = useOffice((s) => s.currentOfficeId)
   const settingsOpen = useOffice((s) => s.settingsOpen)
+  const brainOpen = useOffice((s) => s.brainOpen)
 
   useEffect(() => { installKeyboard(); void bootstrapSession() }, [])
   useEffect(() => {
@@ -48,7 +52,7 @@ export default function App() {
           <Scene officeKey={officeId} />
           <TopBar />
           <Directory />
-          {!settingsOpen && <EmployeePanel />}
+          {!settingsOpen && !brainOpen && <EmployeePanel />}
           <SettingsPanel />
           <Minimap />
           <ControlsHint />
@@ -70,7 +74,9 @@ export default function App() {
       {!entered && <StartScreen />}
       <LoadingBar />
       <NewOfficeModal />
-      <CreateEmployeeModal />
+      <CatalogModal />
+      <AdminPanel />
+      <BrainPanel />
       <AiProvidersModal />
       <ChangePasswordModal />
       <MembersModal />

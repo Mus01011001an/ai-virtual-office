@@ -8,7 +8,8 @@ import { enterOffice, signOut } from '../state/remote'
 import { AuthCard } from './Auth'
 import { speechRecognizer } from '../audio/speech-recognition'
 import { isTouchOrIPad } from '../camera/CameraRig'
-import { GameTitleScene } from './game/GameTitleScene'
+import { BlockyAvatar } from './BlockyAvatar'
+import type { Appearance } from '../state/types'
 
 const anyPanel = (s: ReturnType<typeof useOffice.getState>) =>
   !!s.workstationId || s.newOfficeOpen || s.createEmployeeOpen
@@ -258,136 +259,113 @@ export function StartScreen() {
   const [err, setErr] = useState('')
 
   return (
-    <div className="absolute inset-0 z-50 overflow-hidden text-bone bg-[#07080d]">
-      {/* 3D Realtime Orbiting Cyber Island Scene */}
-      <GameTitleScene />
-
-      {/* Cyber Grid Lines Overlay & Vignette */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,#07080deb_85%)]" />
-
-      <div className="relative mx-auto flex h-full max-w-6xl flex-col justify-between p-6 sm:p-10 z-10 overflow-y-auto">
-        {/* Header Bar */}
+    <div className="absolute inset-0 z-50 overflow-hidden bg-gradient-to-b from-[#5cb8ff] via-[#8fd0ff] to-[#d7f0ff] text-slate-800">
+      <SkyDecor />
+      <div className="relative z-10 mx-auto flex h-full max-w-5xl flex-col overflow-y-auto p-5 sm:p-8">
         <div className="flex items-center justify-between">
-          <div className="inline-flex items-center gap-2.5 rounded-full border border-cyan-400/25 bg-black/50 px-3.5 py-1 text-xs font-mono font-bold tracking-wider text-cyan-300 backdrop-blur-md">
-            <span className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
-            <span>AI VIRTUAL OFFICE SYSTEM v2.0</span>
+          <div className="flex items-center gap-2 font-display text-[17px] font-semibold text-white drop-shadow-[0_2px_0_rgba(0,60,140,0.35)]">
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-white text-[18px] shadow-[0_4px_0_#9cc4ef]">🏢</span>
+            AI Office
           </div>
-
           {st.me && (
-            <div className="flex items-center gap-3 rounded-full border border-white/10 bg-black/60 px-4 py-1.5 backdrop-blur-md">
-              <span className="text-xs font-mono text-white/50">OPERATOR:</span>
-              <span className="text-xs font-mono font-bold text-cyan-300">{st.me.name}</span>
-              <button
-                onClick={() => void signOut()}
-                className="ml-2 rounded-full border border-white/20 px-2.5 py-0.5 text-[11px] font-mono text-white/70 hover:border-rose-400 hover:text-rose-300 transition-colors"
-              >
-                LOGOUT
-              </button>
+            <div className="flex items-center gap-2 rounded-full bg-white/90 py-1 pl-4 pr-1 text-[13px] shadow-[0_4px_0_#9cc4ef]">
+              <span className="font-semibold text-slate-700">{st.me.name}</span>
+              <button onClick={() => void signOut()} className="rounded-full px-3 py-1 font-semibold text-slate-500 hover:bg-slate-100 hover:text-rose-500">Keluar</button>
             </div>
           )}
         </div>
 
-        {/* Center Hero & Login or World Slots */}
-        <div className="my-auto py-6 flex flex-col items-center text-center">
-          <div className="mb-2 text-xs font-mono tracking-[0.3em] uppercase text-cyan-400/90 drop-shadow-[0_0_12px_rgba(0,245,212,0.6)]">
-            ✦ AUTONOMOUS MULTI-AGENT VIRTUAL ENVIRONMENT ✦
-          </div>
-          <h1 className="font-mono font-black text-[clamp(32px,5.5vw,58px)] leading-[1.05] tracking-tight uppercase text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-100 to-cyan-300 drop-shadow-[0_4px_30px_rgba(0,245,212,0.35)]">
-            VIRTUAL OFFICE
+        <div className="my-auto flex flex-col items-center py-8 text-center">
+          <TeamParade />
+          <h1 className="mt-5 font-display text-[clamp(36px,6vw,64px)] font-bold leading-none text-white drop-shadow-[0_5px_0_rgba(0,70,160,0.35)]">
+            Kantor AI-mu
           </h1>
-          <p className="mt-2.5 max-w-lg text-xs sm:text-sm font-sans text-white/60 leading-relaxed">
-            Kantor simulasi 3D interaktif. Sapa dan bimbing agen AI, jalankan rapat strategi, dan pantau kemajuan kerja tim secara real-time.
+          <p className="mt-3 max-w-md text-[14px] text-slate-700/80">
+            Masuk ke kantor 3D bersama tim AI, teman, dan dirimu sendiri. Semua AI berbagi satu otak.
           </p>
 
-          {!st.authChecked && (
-            <div className="mt-8 flex items-center gap-2 font-mono text-sm text-cyan-300/70 animate-pulse">
-              <span>INITIALIZING SYSTEM PROTOCOLS…</span>
-            </div>
-          )}
-
+          {!st.authChecked && <div className="mt-8 font-display text-[16px] text-white">Memuat…</div>}
           {st.authChecked && !st.me && <AuthCard />}
 
           {st.authChecked && st.me && (
-            <div className="mt-6 w-full max-w-2xl">
-              <div className="mb-3 flex items-center justify-between text-xs font-mono">
-                <span className="text-cyan-400 font-bold uppercase tracking-wider">
-                  SELECT REALM / PILIH DUNIA KANTOR:
-                </span>
-                <span className="text-white/40">{st.offices.length} REALMS READY</span>
-              </div>
-
-              {err && (
-                <div className="mb-4 rounded-xl border border-rose-500/30 bg-rose-500/15 p-3 text-xs font-mono text-rose-300">
-                  ⚠️ {err}
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                {st.offices.map((o, idx) => (
+            <div className="mt-7 w-full max-w-2xl text-left">
+              {err && <div className="mb-3 rounded-2xl bg-rose-50 px-3 py-2 text-[12.5px] text-rose-600">{err}</div>}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {st.offices.map((o) => (
                   <button
                     key={o.id}
                     disabled={!!busy}
                     onClick={async () => {
                       runtime.player.x = 0
-                      setBusy(o.id)
-                      setErr('')
-                      try {
-                        await enterOffice(o.id)
-                      } catch (e) {
-                        setErr((e as Error).message)
-                      }
+                      setBusy(o.id); setErr('')
+                      try { await enterOffice(o.id) } catch (e) { setErr((e as Error).message) }
                       setBusy(null)
                     }}
-                    className="group relative flex flex-col justify-between rounded-2xl border border-white/10 bg-black/60 p-4 sm:p-5 text-left backdrop-blur-xl transition-all hover:border-cyan-400 hover:bg-cyan-950/20 hover:shadow-[0_0_25px_rgba(0,245,212,0.2)] active:scale-[0.98] cursor-pointer"
+                    className="group flex items-center gap-4 rounded-[24px] bg-white p-4 text-left shadow-[0_6px_0_#b9d3ee] transition-transform hover:-translate-y-0.5 active:translate-y-[3px] active:shadow-[0_3px_0_#b9d3ee] disabled:opacity-60"
                   >
-                    <div>
-                      <div className="flex items-center justify-between text-[11px] font-mono text-white/40 mb-2">
-                        <span>SLOT {String(idx + 1).padStart(2, '0')}</span>
-                        <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/30">
-                          ONLINE
-                        </span>
-                      </div>
-                      <div className="text-base font-bold font-mono text-white group-hover:text-cyan-300 transition-colors">
-                        {o.name}
-                      </div>
-                      <div className="mt-1 text-xs text-white/50">
-                        {o.template === 'demo-team' ? 'Tim Demo · ' : ''}
-                        {o.employeeCount ?? 0} AI Agents · {o.timezone}
-                      </div>
-                    </div>
-
-                    <div className="mt-4 flex items-center justify-between pt-2 border-t border-white/[0.06] text-xs font-mono font-bold text-cyan-400 group-hover:translate-x-1 transition-transform">
-                      <span>{busy === o.id ? 'CONNECTING…' : 'ENTER REALM'}</span>
-                      <span>➔</span>
-                    </div>
+                    <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-sky-100 text-[26px]">🏢</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-display text-[18px] font-semibold text-slate-900">{o.name}</span>
+                      <span className="block text-[12.5px] text-slate-500">{o.employeeCount ?? 0} AI · {o.timezone}</span>
+                    </span>
+                    <span className="rounded-xl bg-[#22c55e] px-3.5 py-2 font-display text-[14px] font-semibold text-white shadow-[0_4px_0_#15803d]">
+                      {busy === o.id ? '…' : 'Masuk'}
+                    </span>
                   </button>
                 ))}
-
                 <button
                   onClick={() => st.set({ newOfficeOpen: true })}
-                  className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/20 bg-black/30 p-5 text-center text-white/60 hover:border-cyan-400 hover:text-cyan-300 hover:bg-cyan-950/15 backdrop-blur-xl transition-all cursor-pointer min-h-[140px]"
+                  className="flex min-h-[88px] items-center justify-center gap-2 rounded-[24px] border-[3px] border-dashed border-white/80 bg-white/25 font-display text-[16px] font-semibold text-white transition-colors hover:bg-white/40"
                 >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-xl font-bold mb-2">
-                    ＋
-                  </div>
-                  <div className="font-mono text-xs font-bold uppercase tracking-wider">
-                    CREATE NEW REALM
-                  </div>
-                  <div className="text-[11px] text-white/40 mt-1">
-                    Buat ruang kantor terpisah
-                  </div>
+                  + Kantor baru
                 </button>
               </div>
             </div>
           )}
         </div>
 
-        {/* Footer info */}
-        <div className="flex items-center justify-between text-[11px] font-mono text-white/35 pt-4">
-          <span>HOSTED ON PRIVATE ARM64 INSTANCE</span>
-          <span>{progress < 100 ? `LOADING ASSETS: ${Math.round(progress)}%` : 'SYSTEM: ALL MODULES READY'}</span>
-        </div>
+        {progress < 100 && <div className="pb-1 text-center text-[12px] text-slate-600/70">Memuat aset {Math.round(progress)}%</div>}
       </div>
+    </div>
+  )
+}
+
+/** Awan blok yang melayang pelan (CSS murni, tanpa WebGL). */
+function SkyDecor() {
+  const clouds = [[6, 14, 1], [70, 9, 1.3], [38, 72, 0.9], [84, 64, 1.1], [14, 80, 0.8]] as const
+  return (
+    <div className="pointer-events-none absolute inset-0">
+      {clouds.map(([x, y, s], i) => (
+        <div key={i} className="floaty absolute" style={{ left: `${x}%`, top: `${y}%`, transform: `scale(${s})`, animationDelay: `${i * -1.3}s` }}>
+          <div className="relative h-10 w-36">
+            <div className="absolute bottom-0 h-7 w-36 rounded-2xl bg-white/80" />
+            <div className="absolute bottom-4 left-6 h-9 w-14 rounded-2xl bg-white/80" />
+            <div className="absolute bottom-3 left-16 h-7 w-12 rounded-2xl bg-white/80" />
+          </div>
+        </div>
+      ))}
+      <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#7fd36a] to-[#9be07f]" />
+      <div className="absolute inset-x-0 bottom-24 h-2 bg-[#6cc24a]" />
+    </div>
+  )
+}
+
+const PARADE: Partial<Appearance>[] = [
+  { skin: '#e0ac85', hair: '#1c1714', hairStyle: 1, top: '#e4572e', face: 1 },
+  { skin: '#c68b62', hair: '#120f0d', hairStyle: 3, top: '#17a398', accessory: 'cap' },
+  { skin: '#f2c9a0', hair: '#2b2118', hairStyle: 0, top: '#2a3a5f', glasses: true, jacket: true },
+  { skin: '#8d5a3b', hair: '#0f0d0c', hairStyle: 0, top: '#1b1b1e', accessory: 'headphones', face: 3 },
+  { skin: '#f5d0b5', hair: '#6b3e26', hairStyle: 2, top: '#f2c14e', glasses: true, face: 2 },
+]
+
+function TeamParade() {
+  return (
+    <div className="flex items-end gap-2 sm:gap-3">
+      {PARADE.map((ap, i) => (
+        <div key={i} className="floaty" style={{ animationDelay: `${i * -0.9}s`, animationDuration: '3.6s' }}>
+          <div className="rounded-[18px] bg-white p-1 shadow-[0_5px_0_#9cc4ef]"><BlockyAvatar ap={ap} size={i === 2 ? 72 : 56} /></div>
+        </div>
+      ))}
     </div>
   )
 }

@@ -94,6 +94,7 @@ function OfficeSwitcher() {
 export function TopBar() {
   const count = useOffice((s) => s.employees.length)
   const remoteCount = useOffice((s) => s.remoteUsers.length)
+  const brainOpen = useOffice((s) => s.brainOpen)
   const dirOpen = useOffice((s) => s.directoryOpen)
   const setOpen = useOffice((s) => s.settingsOpen)
   const pendingApprovals = useOffice((s) => s.pendingApprovalsCount)
@@ -115,7 +116,7 @@ export function TopBar() {
   }, [menuOpen])
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-2 p-2 sm:p-3">
+    <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-2 p-2 font-display sm:p-3">
       {/* Sisi Kiri: Switcher & Jam Kantor */}
       <div className="pointer-events-auto flex items-center gap-2">
         <OfficeSwitcher />
@@ -182,14 +183,26 @@ export function TopBar() {
         <button
           onClick={() => set({ directoryOpen: !dirOpen })}
           title="Buka daftar AI Employee kantor"
-          className={`panel-soft flex h-9 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-semibold transition-colors ${
-            dirOpen ? 'bg-bone text-ink' : 'text-bone hover:bg-ink-2'
+          className={`flex h-9 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-semibold transition-colors ${
+            dirOpen ? 'bg-bone text-ink' : 'panel-soft text-bone hover:bg-ink-2'
           }`}
         >
           <span>Tim</span>
           <span className={`rounded-full px-1.5 text-[10.5px] ${dirOpen ? 'bg-ink/10 text-ink/70' : 'bg-accent/20 text-accent font-bold'}`}>
             {count}
           </span>
+        </button>
+
+        {/* Otak Kantor: memori bersama semua AI */}
+        <button
+          onClick={() => set({ brainOpen: !brainOpen, settingsOpen: false })}
+          title="Otak Kantor — brief, keputusan & hasil kerja yang dibagi semua AI"
+          className={`flex h-9 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-semibold transition-colors ${
+            brainOpen ? 'bg-bone text-ink' : 'panel-soft text-bone hover:bg-ink-2'
+          }`}
+        >
+          <span>🧠</span>
+          <span className="hidden sm:inline">Otak</span>
         </button>
 
         {/* Tombol Undang Teman Langsung */}
