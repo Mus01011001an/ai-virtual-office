@@ -220,11 +220,11 @@ export function CameraRig() {
     dir.current.set(Math.sin(c.yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(c.yaw) * Math.cos(pitch))
     let snap = false
     if (mode === 'fps') {
-      want.current.set(p.x, p.y + 1.62, p.z)
+      want.current.set(p.x, p.y + 1.5, p.z)
       wantLook.current.copy(want.current).add(dir.current)
       snap = true
     } else if (mode === 'tps') {
-      const head = pivot.current.set(p.x, p.y + 1.6, p.z)
+      const head = pivot.current.set(p.x, p.y + 1.48, p.z)
       // Geser ke bahu kanan bila mouse-look aktif (dengan cek dinding di samping).
       const sTarget = runtime.pointerLocked ? SHOULDER : 0
       shoulder.current += (sTarget - shoulder.current) * (1 - Math.exp(-8 * dt))

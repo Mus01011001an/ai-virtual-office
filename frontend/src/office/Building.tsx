@@ -10,14 +10,14 @@ import { useOffice } from '../state/store'
 
 const TEX = '/assets/textures/'
 
-/** Marmer gelap prosedural (canvas) — urat terang tipis + garis nat ubin besar. */
+/** Lantai ubin terang prosedural (canvas): ubin krem bersih + garis nat tipis (gaya kantor blocky). */
 function marbleTexture() {
   const S = 1024
   const c = document.createElement('canvas'); c.width = c.height = S
   const g = c.getContext('2d')!
   let seed = 7
   const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
-  g.fillStyle = '#2c2c30'; g.fillRect(0, 0, S, S)
+  g.fillStyle = '#efe9df'; g.fillRect(0, 0, S, S)
   for (let i = 0; i < 260; i++) {
     const x = rnd() * S, y = rnd() * S, r = 40 + rnd() * 160
     const gr = g.createRadialGradient(x, y, 0, x, y, r)
@@ -27,12 +27,12 @@ function marbleTexture() {
   }
   for (let k = 0; k < 16; k++) {
     let x = rnd() * S, y = rnd() * S, a = rnd() * Math.PI * 2
-    g.strokeStyle = `rgba(220,215,205,${0.08 + rnd() * 0.18})`; g.lineWidth = 0.6 + rnd() * 1.8
+    g.strokeStyle = `rgba(180,170,155,${0.03 + rnd() * 0.06})`; g.lineWidth = 0.6 + rnd() * 1.8
     g.beginPath(); g.moveTo(x, y)
     for (let i = 0; i < 90; i++) { a += (rnd() - 0.5) * 0.5; x += Math.cos(a) * 9; y += Math.sin(a) * 9; g.lineTo(x, y) }
     g.stroke()
   }
-  g.strokeStyle = 'rgba(0,0,0,0.55)'; g.lineWidth = 3
+  g.strokeStyle = 'rgba(150,140,125,0.45)'; g.lineWidth = 4
   for (const p of [0, S / 2, S]) { g.beginPath(); g.moveTo(p, 0); g.lineTo(p, S); g.stroke(); g.beginPath(); g.moveTo(0, p); g.lineTo(S, p); g.stroke() }
   const t = new THREE.CanvasTexture(c)
   t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4
@@ -48,16 +48,16 @@ function useFloorMaterials() {
     for (const t of [wd, wn, wr, cd, cn, cr]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4 }
     wd.colorSpace = cd.colorSpace = THREE.SRGBColorSpace
     const m: Record<FloorKind | 'paving', THREE.Material> = {
-      wood: new THREE.MeshStandardMaterial({ map: wd, normalMap: wn, roughnessMap: wr, color: '#e0c8a8', roughness: 0.75, normalScale: new THREE.Vector2(0.6, 0.6) }),
+      wood: new THREE.MeshStandardMaterial({ map: wd, normalMap: wn, roughnessMap: wr, color: '#ffe2bd', roughness: 0.75, normalScale: new THREE.Vector2(0.6, 0.6) }),
       concrete: new THREE.MeshStandardMaterial({ map: cd, normalMap: cn, roughnessMap: cr, color: '#d8d6d2', roughness: 0.6 }),
       paving: new THREE.MeshStandardMaterial({ map: cd, normalMap: cn, roughnessMap: cr, color: '#b9b4ab', roughness: 0.9 }),
-      carpet: new THREE.MeshStandardMaterial({ color: '#3b4458', roughness: 1 }),
-      carpetBlue: new THREE.MeshStandardMaterial({ color: '#2d5079', roughness: 1 }),
-      carpetGreen: new THREE.MeshStandardMaterial({ color: '#3e6a58', roughness: 1 }),
+      carpet: new THREE.MeshStandardMaterial({ color: '#5b7cfa', roughness: 0.95 }),
+      carpetBlue: new THREE.MeshStandardMaterial({ color: '#36b3c9', roughness: 0.95 }),
+      carpetGreen: new THREE.MeshStandardMaterial({ color: '#7ccf6b', roughness: 0.95 }),
       tile: new THREE.MeshStandardMaterial({ map: cd, color: '#eeeeea', roughness: 0.35 }),
       // marmer gelap mengilap: pantulan dari environment map (murah, tanpa render pass tambahan)
-      marble: new THREE.MeshStandardMaterial({ map: marbleTexture(), color: '#ffffff', roughness: 0.3, metalness: 0.05, envMapIntensity: 0.9 }),
-      tileDark: new THREE.MeshStandardMaterial({ map: cd, color: '#4a4f57', roughness: 0.4, metalness: 0.2 }),
+      marble: new THREE.MeshStandardMaterial({ map: marbleTexture(), color: '#ffffff', roughness: 0.35, metalness: 0, envMapIntensity: 0.6 }),
+      tileDark: new THREE.MeshStandardMaterial({ map: cd, color: '#9aa3b2', roughness: 0.4, metalness: 0 }),
     }
     return m
   }, [wd, wn, wr, cd, cn, cr])

@@ -98,7 +98,7 @@ export const useOffice = create<OfficeState>()(
       cameraMode: 'tps',
       showNames: true,
       quality: 'medium',
-      ambience: 'night',
+      ambience: 'day',
       mouseLook: true,
       showHints: true,
       showMinimap: true,
@@ -188,10 +188,12 @@ export const useOffice = create<OfficeState>()(
     {
       name: 'avo-office',
       // v2: office & employee kini dari backend → buang data lokal lama (offices/customEmployees)
-      version: 2,
-      migrate: (persisted) => {
+      // v3: tampilan baru kantor terang → suasana di-reset ke siang sekali
+      version: 3,
+      migrate: (persisted, from) => {
         const { offices: _o, currentOfficeId: _c, customEmployees: _e, ...prefs } = (persisted ?? {}) as Record<string, unknown>
         void _o; void _c; void _e
+        if (from < 3) prefs.ambience = 'day'
         return prefs as never
       },
       partialize: (s) => ({

@@ -10,8 +10,9 @@ import { poseAt, type Pose, type PoseName } from './poses'
  * Karakter blocky (gaya avatar mainan): kepala kotak membulat yang besar, badan & tungkai berupa balok,
  * wajah sederhana (mata kapsul, senyum), rambut/aksesori berupa blok. Tiap segmen tubuh = SATU mesh
  * hasil merge dengan vertex color; semua karakter berbagi SATU material → ~11 draw call/karakter.
- * Pivot sendi sinkron dengan poses.ts: hips 0.95, spine +0.08, bahu (±0.265, 0.45), siku -0.29,
- * pinggul ±0.09, lutut -0.43, leher 0.53.
+ * Proporsi blocky klasik: kaki ≈ tinggi badan, badan lebar, kepala besar (tinggi total ±1.7 m).
+ * Pivot sendi sinkron dengan poses.ts: hips HIP_Y (0.64, = STAND/SIT y), spine +0.06, bahu (±0.36, 0.50),
+ * siku -0.26, pinggul ±0.1275, lutut -0.31, leher 0.56. Telapak kaki tepat di y=0 saat berdiri.
  */
 
 // ---------- material bersama: plastik halus + rim light lembut ----------
@@ -82,13 +83,18 @@ function merge(parts: Part[]) {
 }
 
 // ---------- dimensi ----------
-const TORSO = { w: 0.44, h: 0.52, d: 0.22 }
-const HEAD = { w: 0.4, h: 0.36, d: 0.36, r: 0.1, y: 0.2 }
-const ARM = { w: 0.16, d: 0.17 }
-const LEG = { w: 0.2, d: 0.2 }
-export const SHOULDER_X = TORSO.w / 2 + ARM.w / 2 - 0.005
-export const SHOULDER_Y = 0.45
-export const NECK_Y = 0.53
+const TORSO = { w: 0.5, h: 0.56, d: 0.26 }
+const HEAD = { w: 0.44, h: 0.4, d: 0.4, r: 0.12, y: 0.22 }
+const ARM = { w: 0.22, d: 0.24 }
+const LEG = { w: 0.245, d: 0.25 }
+export const SHOULDER_X = TORSO.w / 2 + ARM.w / 2
+export const SHOULDER_Y = TORSO.h - 0.06
+export const NECK_Y = TORSO.h
+export const HIP_Y = 0.64
+const SPINE_Y = 0.06
+const HIP_X = LEG.w / 2 + 0.005
+const THIGH_L = 0.31
+const ELBOW_Y = -0.26
 const INK = '#1d1a20'
 
 // ---------- perakitan tubuh per appearance (di-cache) ----------
@@ -223,9 +229,9 @@ function buildBody(ap: Appearance): BodyGeos {
 
   // --- hips ---
   const hips = merge([
-    { g: rbox(TORSO.w - 0.01, 0.16, TORSO.d - 0.005, 0.03), c: bottom, p: [0, 0.0, 0] },
-    { g: rbox(TORSO.w + 0.004, 0.035, TORSO.d + 0.008, 0.012), c: '#1c1b1f', p: [0, 0.065, 0] },
-    { g: rbox(0.05, 0.03, 0.01, 0.006), c: '#d6b46a', p: [0, 0.065, TORSO.d / 2 + 0.006] },
+    { g: rbox(TORSO.w - 0.01, 0.14, TORSO.d - 0.005, 0.03), c: bottom, p: [0, 0.0, 0] },
+    { g: rbox(TORSO.w + 0.004, 0.035, TORSO.d + 0.008, 0.012), c: '#1c1b1f', p: [0, 0.05, 0] },
+    { g: rbox(0.06, 0.03, 0.01, 0.006), c: '#d6b46a', p: [0, 0.05, TORSO.d / 2 + 0.006] },
   ])
 
   // --- spine (badan) ---
@@ -236,7 +242,7 @@ function buildBody(ap: Appearance): BodyGeos {
   ]
   if (ap.jacket) {
     spineParts.push(
-      { g: rbox(0.12, 0.3, 0.012, 0.004), c: shirt, p: [0, TORSO.h - 0.15, fz + 0.002] },
+      { g: rbox(0.15, 0.32, 0.012, 0.004), c: shirt, p: [0, TORSO.h - 0.15, fz + 0.002] },
       { g: rbox(0.04, 0.22, 0.01, 0.004), c: tie, p: [0, TORSO.h - 0.17, fz + 0.009] },
       { g: rbox(0.05, 0.035, 0.012, 0.006), c: tie, p: [0, TORSO.h - 0.045, fz + 0.01] },
       { g: rbox(0.06, 0.26, 0.012, 0.004), c: shade(top, 0.78), p: [0.075, TORSO.h - 0.14, fz + 0.006], r: [0, 0, 0.2] },
@@ -266,23 +272,25 @@ function buildBody(ap: Appearance): BodyGeos {
   ])
 
   // --- lengan (pivot di atas-tengah) ---
-  const sleeveLen = longSleeve ? 0.36 : 0.13
+  // lengan atas: +0.06 (rata bahu) → siku; lengan bawah: siku → ujung tangan (-0.30)
+  const upperLen = 0.06 - ELBOW_Y
+  const sleeveLen = longSleeve ? upperLen : 0.13
   const upper = () => merge([
-    { g: rbox(ARM.w, 0.36, ARM.d, 0.035), c: skin, p: [0, 0.07 - 0.18, 0] },
-    { g: rbox(ARM.w + 0.006, sleeveLen, ARM.d + 0.006, 0.035), c: top, p: [0, 0.07 - sleeveLen / 2, 0] },
+    { g: rbox(ARM.w, upperLen, ARM.d, 0.04), c: skin, p: [0, 0.06 - upperLen / 2, 0] },
+    { g: rbox(ARM.w + 0.006, sleeveLen, ARM.d + 0.006, 0.04), c: top, p: [0, 0.06 - sleeveLen / 2, 0] },
   ])
   const fore = () => merge([
-    { g: rbox(ARM.w - 0.004, 0.27, ARM.d - 0.004, 0.03), c: longSleeve ? top : skin, p: [0, -0.125, 0] },
-    ...(ap.jacket ? [{ g: rbox(ARM.w + 0.002, 0.03, ARM.d + 0.002, 0.01), c: shirt, p: [0, -0.245, 0] as V3 }] : []),
-    { g: rbox(ARM.w - 0.01, 0.085, ARM.d - 0.01, 0.03), c: skin, p: [0, -0.295, 0.004] }, // tangan
+    { g: rbox(ARM.w - 0.004, 0.22, ARM.d - 0.004, 0.035), c: longSleeve ? top : skin, p: [0, -0.11, 0] },
+    ...(ap.jacket ? [{ g: rbox(ARM.w + 0.002, 0.03, ARM.d + 0.002, 0.01), c: shirt, p: [0, -0.205, 0] as V3 }] : []),
+    { g: rbox(ARM.w - 0.012, 0.09, ARM.d - 0.012, 0.035), c: skin, p: [0, -0.255, 0.004] }, // tangan
   ])
 
   // --- kaki ---
-  const thigh = merge([{ g: rbox(LEG.w, 0.47, LEG.d, 0.03), c: bottom, p: [0, -0.215, 0] }])
+  const thigh = merge([{ g: rbox(LEG.w, THIGH_L + 0.02, LEG.d, 0.035), c: bottom, p: [0, 0.01 - THIGH_L / 2, 0] }])
   const shin = merge([
-    { g: rbox(LEG.w - 0.004, 0.38, LEG.d - 0.004, 0.03), c: bottom, p: [0, -0.17, 0] },
-    { g: rbox(LEG.w + 0.008, 0.1, 0.245, 0.035), c: ap.shoes, p: [0, -0.41, 0.03] },
-    { g: rbox(LEG.w + 0.012, 0.028, 0.252, 0.01), c: sole, p: [0, -0.465, 0.03] },
+    { g: rbox(LEG.w - 0.004, 0.22, LEG.d - 0.004, 0.035), c: bottom, p: [0, -0.11, 0] },
+    { g: rbox(LEG.w + 0.01, 0.09, LEG.d + 0.05, 0.035), c: ap.shoes, p: [0, -0.26, 0.025] },
+    { g: rbox(LEG.w + 0.014, 0.022, LEG.d + 0.056, 0.01), c: sole, p: [0, -0.299, 0.025] },
   ])
 
   const out = { hips, spine, head, upperL: upper(), upperR: upper(), foreL: fore(), foreR: fore(), thigh, shin }
@@ -329,25 +337,25 @@ export function Humanoid({ appearance: ap, poseRef, seed, hideHead = false }: {
   const arm = (side: 1 | -1) => (
     <group ref={side === 1 ? r.lS : r.rS} position={[side * SHOULDER_X, SHOULDER_Y, 0]}>
       <mesh geometry={side === 1 ? b.upperL : b.upperR} material={BODY_MAT} castShadow />
-      <group ref={side === 1 ? r.lE : r.rE} position={[0, -0.29, 0]}>
+      <group ref={side === 1 ? r.lE : r.rE} position={[0, ELBOW_Y, 0]}>
         <mesh geometry={side === 1 ? b.foreL : b.foreR} material={BODY_MAT} castShadow />
       </group>
     </group>
   )
   const leg = (side: 1 | -1) => (
-    <group ref={side === 1 ? r.lH : r.rH} position={[side * 0.108, -0.04, 0]}>
+    <group ref={side === 1 ? r.lH : r.rH} position={[side * HIP_X, -0.02, 0]}>
       <mesh geometry={b.thigh} material={BODY_MAT} castShadow />
-      <group ref={side === 1 ? r.lK : r.rK} position={[0, -0.43, 0]}>
+      <group ref={side === 1 ? r.lK : r.rK} position={[0, -THIGH_L, 0]}>
         <mesh geometry={b.shin} material={BODY_MAT} castShadow />
       </group>
     </group>
   )
 
   return (
-    <group ref={r.hips} position={[0, 0.95, 0]}>
+    <group ref={r.hips} position={[0, HIP_Y, 0]}>
       <mesh geometry={b.hips} material={BODY_MAT} castShadow />
       {leg(1)}{leg(-1)}
-      <group ref={r.spine} position={[0, 0.08, 0]}>
+      <group ref={r.spine} position={[0, SPINE_Y, 0]}>
         <mesh geometry={b.spine} material={BODY_MAT} castShadow />
         <group ref={r.head} position={[0, NECK_Y, 0]} visible={!hideHead}>
           <mesh geometry={b.head} material={BODY_MAT} castShadow />

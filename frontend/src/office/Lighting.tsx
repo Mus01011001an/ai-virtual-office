@@ -63,7 +63,8 @@ export function Lighting() {
     sun.current.target.updateMatrixWorld()
     sun.current.intensity = 0.7 + day * 2.25
     sun.current.color.copy(NIGHT).lerp(DAY, day)
-    hemi.current.intensity = 0.5 + (1 - day) * 0.2
+    // siang: cahaya ambien terang & rata (gaya kantor blocky), malam: redup hangat
+    hemi.current.intensity = 0.7 + day * 0.75
     MATS.lamp.emissiveIntensity = 0.9 + (1 - day) * 2.4
     MATS.ledWarm.emissiveIntensity = 1.4 + (1 - day) * 2.2
     MATS.ledRing.emissiveIntensity = 2.0 + (1 - day) * 2.5
@@ -74,7 +75,7 @@ export function Lighting() {
   return (
     <>
       {/* langit sedikit biru, pantulan lantai hangat → kontras warna ala game stylized */}
-      <hemisphereLight ref={hemi} args={['#d6e6ff', '#b08a66', 0.5]} />
+      <hemisphereLight ref={hemi} args={['#e6f0ff', '#f1dcc0', 0.5]} />
       {/* cahaya hangat dari lampu gantung cincin (tanpa bayangan → murah); dimatikan di kualitas Rendah */}
       {q.post && (
         <group ref={lamps}>
@@ -95,7 +96,7 @@ export function Lighting() {
       <Suspense fallback={null}>
         <Environment
           files={night ? '/assets/hdri/shanghai_bund.hdr' : '/assets/hdri/rooftop_day.hdr'}
-          background={!night} backgroundIntensity={0.6} backgroundBlurriness={0.08} environmentIntensity={night ? 0.2 : 0.55}
+          background={!night} backgroundIntensity={0.6} backgroundBlurriness={0.08} environmentIntensity={night ? 0.2 : 0.85}
           backgroundRotation={[0, Math.PI / 2, 0]} environmentRotation={[0, Math.PI / 2, 0]}
         />
       </Suspense>

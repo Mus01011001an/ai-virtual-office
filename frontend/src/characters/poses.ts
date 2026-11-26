@@ -10,8 +10,9 @@ export type PoseName =
   | 'stand' | 'walk' | 'run' | 'type' | 'typeFast' | 'think' | 'sitIdle' | 'wait'
   | 'sitTalk' | 'sitRelax' | 'standCup' | 'standTalk'
 
-const STAND: Pose = { y: 0.95, spineX: 0, headX: 0, headY: 0, lSx: 0, lSz: 0.06, lEx: -0.12, rSx: 0, rSz: -0.06, rEx: -0.12, lHx: 0, lKx: 0, rHx: 0, rKx: 0 }
-const SIT: Pose = { ...STAND, y: 0.53, spineX: 0.04, lHx: -1.52, lKx: 1.5, rHx: -1.52, rKx: 1.5, lSx: -0.3, rSx: -0.3, lEx: -0.7, rEx: -0.7 }
+/** y = tinggi pinggul (Humanoid HIP_Y). Duduk: paha rata di dudukan kursi (0.50). */
+const STAND: Pose = { y: 0.64, spineX: 0, headX: 0, headY: 0, lSx: 0, lSz: 0.06, lEx: -0.12, rSx: 0, rSz: -0.06, rEx: -0.12, lHx: 0, lKx: 0, rHx: 0, rKx: 0 }
+const SIT: Pose = { ...STAND, y: 0.64, spineX: 0.04, lHx: -1.52, lKx: 1.5, rHx: -1.52, rKx: 1.5, lSx: -0.3, rSx: -0.3, lEx: -0.7, rEx: -0.7 }
 
 export function poseAt(name: PoseName, t: number, seed: number, out: Pose): Pose {
   const s = seed * 13.37

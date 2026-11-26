@@ -18,9 +18,9 @@ const columnGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.34, 10)
 const legGeo = new THREE.BoxGeometry(0.04, 0.03, 0.3)
 
 // Material bersama
-const fabricMat = new THREE.MeshStandardMaterial({ color: '#252e3d', roughness: 0.65, metalness: 0.1 })
-const metalMat = new THREE.MeshStandardMaterial({ color: '#374151', roughness: 0.35, metalness: 0.8 })
-const blackMat = new THREE.MeshStandardMaterial({ color: '#111827', roughness: 0.5, metalness: 0.2 })
+const fabricMat = new THREE.MeshStandardMaterial({ color: '#2f6fe0', roughness: 0.6, metalness: 0 })
+const metalMat = new THREE.MeshStandardMaterial({ color: '#c7ccd6', roughness: 0.35, metalness: 0.5 })
+const blackMat = new THREE.MeshStandardMaterial({ color: '#3a3f4a', roughness: 0.5, metalness: 0 })
 
 interface ChairData {
   id: string

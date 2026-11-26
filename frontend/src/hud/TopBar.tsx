@@ -116,7 +116,7 @@ export function TopBar() {
   }, [menuOpen])
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-2 p-2 sm:p-3">
+    <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-2 p-2 font-display sm:p-3">
       {/* Sisi Kiri: Switcher & Jam Kantor */}
       <div className="pointer-events-auto flex items-center gap-2">
         <OfficeSwitcher />

@@ -13,7 +13,7 @@ export const Btn = ({ children, onClick, active, className = '', title, variant 
   children: ReactNode; onClick?: () => void; active?: boolean; className?: string; title?: string; variant?: Variant; size?: 'sm' | 'md'; disabled?: boolean; type?: 'button' | 'submit' | 'reset'
 }) => (
   <button type={type} title={title} onClick={onClick} disabled={disabled}
-    className={`inline-flex items-center justify-center gap-1.5 rounded-full font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${size === 'md' ? 'h-10 px-5 text-sm' : 'h-8 px-3.5 text-[12.5px]'} ${active ? 'bg-bone text-ink' : VARIANT[variant]} ${className}`}>
+    className={`inline-flex items-center justify-center gap-1.5 rounded-full font-display font-semibold tracking-[0.01em] transition-[background-color,transform] active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed ${size === 'md' ? 'h-10 px-5 text-sm' : 'h-8 px-3.5 text-[12.5px]'} ${active ? 'bg-bone text-ink' : VARIANT[variant]} ${className}`}>
     {children}
   </button>
 )

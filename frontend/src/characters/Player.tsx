@@ -149,7 +149,7 @@ export function Player() {
       </RigidBody>
       <group ref={visual} visible={mode !== 'fps'}>
         <Humanoid appearance={CEO_APPEARANCE} poseRef={poseRef} seed={1} />
-        {(showNames || !!bubble) && mode !== 'fps' && <NameTag y={2.22} name="Kamu" role="CEO · Owner" badge="CEO" bubble={bubble} />}
+        {(showNames || !!bubble) && mode !== 'fps' && <NameTag y={2.0} name="Kamu" role="CEO · Owner" badge="CEO" bubble={bubble} />}
       </group>
     </>
   )
