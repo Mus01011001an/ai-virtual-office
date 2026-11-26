@@ -12,6 +12,10 @@ interface OfficeState {
   offices: Office[]
   currentOfficeId: string
   providersOpen: boolean
+  /** Admin platform (superadmin): katalog AI, provider global, Higgsfield */
+  adminOpen: boolean
+  /** Panel Otak Kantor (memori bersama tim) */
+  brainOpen: boolean
   whiteboardOpen: boolean
   debateMode: boolean
   whiteboard: WhiteboardState
@@ -89,6 +93,8 @@ export const useOffice = create<OfficeState>()(
       offices: [],
       currentOfficeId: '',
       providersOpen: false,
+      adminOpen: false,
+      brainOpen: false,
       cameraMode: 'tps',
       showNames: true,
       quality: 'medium',
@@ -209,6 +215,7 @@ export const isUiBlocking = () => {
     s.ideModalOpen ||
     s.createEmployeeOpen ||
     s.providersOpen ||
+    s.adminOpen ||
     s.whiteboardOpen ||
     s.standupOpen ||
     s.scheduleConfigOpen ||

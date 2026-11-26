@@ -38,13 +38,13 @@ export class EmployeeController {
   @Post()
   @Permission(P_EMPLOYEE_WRITE)
   create(@ActiveCompany() companyId: string, @Body() dto: CreateEmployeeDto, @Session() s: UserSession) {
-    return this.service.create(companyId, dto, s.user.id);
+    return this.service.create(companyId, dto, s.user.id, !!(s.user as { isSuperAdmin?: boolean }).isSuperAdmin);
   }
 
   @Patch(':id')
   @Permission(P_EMPLOYEE_WRITE)
   update(@ActiveCompany() companyId: string, @Param('id') id: string, @Body() dto: UpdateEmployeeDto, @Session() s: UserSession) {
-    return this.service.update(companyId, id, dto, s.user.id);
+    return this.service.update(companyId, id, dto, s.user.id, !!(s.user as { isSuperAdmin?: boolean }).isSuperAdmin);
   }
 
   @Post(':id/instructions')

@@ -11,6 +11,9 @@ import { AiEngineController } from './ai-engine.controller';
 import { McpModule } from '../mcp/mcp.module';
 import { AgentBundleService } from './agent-bundle.service';
 import { AgentMemoryService } from './agent-memory.service';
+import { BrainService } from '../brain/brain.service';
+import { HiggsfieldService } from './higgsfield.service';
+import { SystemSettingsService } from './system-settings.service';
 
 @Module({
   imports: [DatabaseModule, McpModule],
@@ -25,6 +28,9 @@ import { AgentMemoryService } from './agent-memory.service';
     AgentRuntimeService,
     AgentBundleService,
     AgentMemoryService,
+    BrainService,
+    HiggsfieldService,
+    SystemSettingsService,
   ],
   exports: [
     AiEngineService,
@@ -33,6 +39,9 @@ import { AgentMemoryService } from './agent-memory.service';
     ProviderAdapterRegistry,
     AgentBundleService,
     AgentMemoryService,
+    BrainService,
+    HiggsfieldService,
+    SystemSettingsService,
   ],
 })
 export class AiEngineModule {}

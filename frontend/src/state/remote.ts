@@ -5,7 +5,6 @@
  */
 import { del, fetchPendingApprovalsCount, fetchSchedule, get, getToken, leavePresence, patch, post, sendPresence, setToken, setUnauthorizedHandler, streamUrl } from '../lib/api'
 import { appearanceFromSeed } from '../lib/appearance'
-import { DESKS } from '../office/layout'
 import { useOffice } from './store'
 import { runtime } from './runtime'
 import { proceduralAudio } from '../audio/procedural-audio'
@@ -19,7 +18,7 @@ export interface ApiEmployee {
   id: string; name: string; role: string; department: string; provider: string; providerId: string | null; model: string
   skills: string[]; systemPrompt: string; deskIndex: number; appearance: Partial<Appearance>; status: Employee['status']
   slot: number | null; currentTask: string | null; currentTool: string | null; progress: number; isDemo: boolean; createdAt: string
-  voiceProfile?: Employee['voiceProfile']
+  voiceProfile?: Employee['voiceProfile']; templateId?: string | null
 }
 interface ApiActivity { id: string; employeeId: string; kind: string; text: string; createdAt: string }
 interface ApiTask { id: string; employeeId: string; title: string; status: TaskItem['status'] | 'CANCELLED' | 'WAITING'; createdAt: string; finishedAt: string | null; isDemo: boolean }
@@ -47,6 +46,7 @@ export function toEmployee(e: Partial<ApiEmployee> & { id: string }, officeId: s
     department: e.department || 'Operations',
     provider: e.provider || '',
     providerId: e.providerId || '',
+    templateId: e.templateId ?? null,
     model: e.model || '',
     skills: Array.isArray(e.skills) ? e.skills : [],
     systemPrompt: e.systemPrompt || '',
@@ -184,21 +184,10 @@ export async function enterOffice(id: string) {
 }
 
 // ---------- employee ----------
-/** Office demo memakai meja tim DEMO → pilih meja kosong yang tidak bentrok dengan fixture. */
-function suggestDesk(): number | undefined {
-  const used = new Set(useOffice.getState().employees.map((e) => e.deskIndex))
-  const i = DESKS.findIndex((_, k) => !used.has(k))
-  return i >= 0 ? i : undefined
-}
-
-export async function recruit(input: { name: string; role: string; department: string; providerId?: string; model?: string; skills: string[]; systemPrompt: string }) {
-  const seedLook = appearanceFromSeed(`${input.name}-${Date.now()}`)
-  const emp = await post<ApiEmployee>('/office/employees', { ...input, appearance: seedLook, deskIndex: suggestDesk() })
+/** Pakai AI dari katalog global (persona & model diatur administrator). */
+export async function hireFromCatalog(templateId: string) {
+  const emp = await post<ApiEmployee>(`/office/agent-catalog/${templateId}/hire`)
   return patchOrUpsertEmployee(emp)
-}
-
-export async function updateEmployee(id: string, p: Partial<{ name: string; role: string; department: string; providerId: string; model: string; skills: string[]; systemPrompt: string }>) {
-  return patchOrUpsertEmployee(await patch<ApiEmployee>(`/office/employees/${id}`, p))
 }
 
 export async function assignTask(employeeId: string, title: string, source: 'panel' | 'discussion' = 'panel') {
@@ -420,6 +409,9 @@ function openStream() {
       })
     }
   })
+  // Otak Kantor: panel mendengarkan lewat window event (tanpa menambah state global per-entri)
+  on<unknown>('brain.entry', (entry) => window.dispatchEvent(new CustomEvent('avo:brain', { detail: { type: 'entry', entry } })))
+  on<{ id: string }>('brain.deleted', ({ id }) => window.dispatchEvent(new CustomEvent('avo:brain', { detail: { type: 'deleted', id } })))
   on<{ discussionId: string; whiteboard: any }>('whiteboard.updated', ({ whiteboard }) => {
     if (whiteboard) {
       useOffice.getState().set({ whiteboard })

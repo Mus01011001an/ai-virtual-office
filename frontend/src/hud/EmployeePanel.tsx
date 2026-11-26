@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useOffice } from '../state/store'
-import { Avatar, Btn, CloseBtn, DemoBadge, StatusPill, fmtTime, inputCls } from './ui'
+import { BlockyAvatar } from './BlockyAvatar'
+import { Btn, CloseBtn, DemoBadge, StatusPill, fmtTime, inputCls } from './ui'
 import { toggleSummon } from '../state/gather'
 import { assignTask, instruct } from '../state/remote'
 import { MarkdownView } from './MarkdownView'
@@ -51,7 +52,7 @@ export function EmployeePanel() {
   return (
     <div className="panel rise pointer-events-auto fixed sm:absolute right-3 top-[56px] sm:top-[68px] z-30 flex max-h-[calc(100dvh-130px)] w-[min(340px,calc(100vw-24px))] flex-col text-bone shadow-2xl">
       <div className="relative flex items-center gap-3 border-b border-line p-4">
-                <Avatar color={e.appearance.top} name={e.name} size={44} />
+                <BlockyAvatar ap={e.appearance} size={46} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2"><span className="display truncate text-[17px] leading-none">{e.name}</span>{e.isDemo && <DemoBadge />}</div>
           <div className="mt-1 truncate text-[11px] text-bone/55">{e.role} · {e.department}</div>

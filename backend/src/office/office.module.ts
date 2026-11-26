@@ -30,6 +30,9 @@ import { AiEngineModule } from './ai-engine/ai-engine.module';
 import { WorkstationModule } from './workstation/workstation.module';
 import { S3Module } from 'src/s3/s3.module';
 import { McpModule } from './mcp/mcp.module';
+import { AdminCatalogController, CatalogController } from './catalog/catalog.controller';
+import { CatalogService } from './catalog/catalog.service';
+import { BrainController } from './brain/brain.controller';
 
 /** Domain virtual office: AI provider, AI engine, employee, task, diskusi, jadwal, presence, realtime SSE, sandbox, approvals, webhook integrations, voice engine. */
 @Global()
@@ -47,6 +50,9 @@ import { McpModule } from './mcp/mcp.module';
     ApprovalController,
     IntegrationsController,
     VoiceController,
+    CatalogController,
+    AdminCatalogController,
+    BrainController,
   ],
   providers: [
     OfficeEventsService,
@@ -65,6 +71,7 @@ import { McpModule } from './mcp/mcp.module';
     GithubService,
     WebhookNotificationService,
     VoiceService,
+    CatalogService,
   ],
   exports: [
     OfficeEventsService,

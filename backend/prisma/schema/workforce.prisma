@@ -46,6 +46,8 @@ model Employee {
   currentTool  String?
   progress     Float          @default(0)
   isDemo       Boolean        @default(false)
+  /// AI dari katalog global (null = employee lama / dibuat superadmin manual)
+  templateId   String?
   createdById  String?
   updatedById  String?
   createdAt    DateTime       @default(now())
@@ -54,6 +56,8 @@ model Employee {
 
   company      Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
   aiProvider   AiProvider?        @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  template     AgentTemplate?     @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  brainEntries BrainEntry[]
   tasks        Task[]
   activities   EmployeeActivity[]
   artifacts    Artifact[]

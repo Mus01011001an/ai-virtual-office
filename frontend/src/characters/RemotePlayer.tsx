@@ -72,7 +72,7 @@ export function RemotePlayer({ data }: { data: RemoteUserData }) {
 
       {/* 3D Roblox-Style Speech Halo Ring saat berbicara */}
       {data.isSpeaking && (
-        <group position={[0, 2.05, 0]}>
+        <group position={[0, 2.2, 0]}>
           <mesh rotation={[Math.PI / 2, 0, 0]}>
             <ringGeometry args={[0.26, 0.34, 24]} />
             <meshBasicMaterial color="#22c55e" side={THREE.DoubleSide} transparent opacity={0.85} />
@@ -82,7 +82,7 @@ export function RemotePlayer({ data }: { data: RemoteUserData }) {
       )}
 
       {/* NameTag di atas kepala remote player */}
-      <Html position={[0, 2.25, 0]} center distanceFactor={14}>
+      <Html position={[0, 2.4, 0]} center distanceFactor={14}>
         <div className="flex flex-col items-center pointer-events-none select-none">
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-ink/90 backdrop-blur-md border border-white/15 shadow-xl text-white">
             <span

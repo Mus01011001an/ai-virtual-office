@@ -14,10 +14,16 @@ export const STATUS_META: Record<EmployeeStatus, { label: string; color: string 
   OFFLINE: { label: 'Offline', color: '#52525b' },
 }
 
+export type Accessory = 'none' | 'cap' | 'headphones' | 'headset' | 'beanie'
+
+/** Karakter blocky (characters/Humanoid.tsx). hairStyle: 0 pendek, 1 panjang, 2 cepol, 3 cepak. */
 export interface Appearance {
   skin: string; hair: string; hairStyle: 0 | 1 | 2 | 3
   top: string; bottom: string; shoes: string
   height: number; glasses: boolean; jacket: boolean
+  accessory?: Accessory
+  /** variasi wajah 0–3 (senyum, ceria, kalem, fokus) */
+  face?: number
 }
 
 export type SlotZone = 'break' | 'meeting' | 'collab'
@@ -29,6 +35,8 @@ export interface Employee {
   role: string
   department: string
   provider: string
+  /** AI dari katalog global (null = employee lama) */
+  templateId?: string | null
   /** AiProvider di backend (null = belum memilih model) */
   providerId?: string | null
   model: string

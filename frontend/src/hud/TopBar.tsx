@@ -94,6 +94,7 @@ function OfficeSwitcher() {
 export function TopBar() {
   const count = useOffice((s) => s.employees.length)
   const remoteCount = useOffice((s) => s.remoteUsers.length)
+  const brainOpen = useOffice((s) => s.brainOpen)
   const dirOpen = useOffice((s) => s.directoryOpen)
   const setOpen = useOffice((s) => s.settingsOpen)
   const pendingApprovals = useOffice((s) => s.pendingApprovalsCount)
@@ -190,6 +191,18 @@ export function TopBar() {
           <span className={`rounded-full px-1.5 text-[10.5px] ${dirOpen ? 'bg-ink/10 text-ink/70' : 'bg-accent/20 text-accent font-bold'}`}>
             {count}
           </span>
+        </button>
+
+        {/* Otak Kantor: memori bersama semua AI */}
+        <button
+          onClick={() => set({ brainOpen: !brainOpen, settingsOpen: false })}
+          title="Otak Kantor — brief, keputusan & hasil kerja yang dibagi semua AI"
+          className={`panel-soft flex h-9 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-semibold transition-colors ${
+            brainOpen ? 'bg-bone text-ink' : 'text-bone hover:bg-ink-2'
+          }`}
+        >
+          <span>🧠</span>
+          <span className="hidden sm:inline">Otak</span>
         </button>
 
         {/* Tombol Undang Teman Langsung */}

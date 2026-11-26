@@ -47,6 +47,7 @@ model Company {
   mcpServers         McpServer[]
   agentFiles         AgentFile[]
   agentSessionMemories AgentSessionMemory[]
+  brainEntries         BrainEntry[]
 
   @@map("company")
 }

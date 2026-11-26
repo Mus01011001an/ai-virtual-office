@@ -9,7 +9,8 @@ export type OfficeEventType =
   | 'whiteboard.updated' | 'discussion.concluded'
   | 'schedule.transition' | 'standup.started' | 'standup.item' | 'standup.completed'
   | 'presence.update' | 'presence.voice-signal'
-  | 'approval.requested' | 'approval.decided' | 'integration.event';
+  | 'approval.requested' | 'approval.decided' | 'integration.event'
+  | 'brain.entry' | 'brain.deleted';
 
 interface OfficeEvent { companyId: string; type: OfficeEventType; data: unknown }
 
