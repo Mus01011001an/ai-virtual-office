@@ -14,6 +14,7 @@ import { placePlayer, savePosition } from '../world/spawn';
 import { sfx } from './sfx';
 import { agentBodies, keys, look, nearby, player, touchMove, walkers } from '../world/runtime';
 import { labelPortal } from './labels';
+import { ZOOM, camZoom, topWeight } from './zoom';
 
 // 2026-11-28: jalan 2,2 / lari 5 m/s — langkah klip Mixamo cocok dengan kecepatan (dulu 3,2 / 6,2: kaki meluncur)
 const WALK = 2.2, RUN = 5.0, JUMP = 4.6, GRAVITY = 13, RADIUS = 0.32;
@@ -129,6 +130,24 @@ export function Player() {
       player.pitch = THREE.MathUtils.clamp(player.pitch - e.movementY * k, -1.1, 0.9);
     };
     window.addEventListener('keydown', down);
+    // Scroll = zoom: mentok dekat → orang pertama, mentok jauh → pandangan atas ala Dota. Hanya di atas kanvas 3D
+    // (atau saat kursor terkunci), bukan saat menggulir panel.
+    let edge = 0;
+    const wheel = (e: WheelEvent) => {
+      const s = st();
+      if (s.mode !== 'life' || s.shot || isTyping()) return;
+      if (e.target !== gl.domElement && !look.locked) return;
+      e.preventDefault();
+      const dy = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1);
+      const z = s.zoom;
+      if (dy > 0) { edge = 0; s.setZoom(z === 0 ? ZOOM.MIN_THIRD : z * Math.exp(dy * 0.0016)); return; }
+      if (dy >= 0 || z === 0) return;
+      // di jarak terdekat orang ketiga: perlu sedikit gulir lagi untuk masuk orang pertama (trackpad tidak kebablasan)
+      if (z <= ZOOM.MIN_THIRD + 0.01) { edge += -dy; if (edge > 80) { edge = 0; s.setZoom(0); } return; }
+      edge = 0;
+      s.setZoom(Math.max(ZOOM.MIN_THIRD, z * Math.exp(dy * 0.0016)));
+    };
+    window.addEventListener('wheel', wheel, { passive: false });
     window.addEventListener('keyup', up);
     window.addEventListener('blur', blur);
     canvas.addEventListener('click', click);
@@ -145,6 +164,7 @@ export function Player() {
     document.addEventListener('pointerlockchange', lockChange);
     return () => {
       window.removeEventListener('keydown', down);
+      window.removeEventListener('wheel', wheel);
       window.removeEventListener('keyup', up);
       window.removeEventListener('blur', blur);
       canvas.removeEventListener('click', click);
@@ -251,7 +271,10 @@ export function Player() {
     group.current.position.set(player.x, player.y, player.z);
     group.current.rotation.y = style === 'first' ? player.yaw : player.facing;
 
-    // Camera
+    // Camera — jarak zoom teredam menuju target (scroll), lalu bobot pandangan atas
+    const zTarget = useOffice.getState().zoom;
+    camZoom.dist += (Math.max(ZOOM.MIN_THIRD, zTarget) - camZoom.dist) * (1 - Math.exp(-dt * 9));
+    camZoom.top = style === 'first' ? 0 : topWeight(camZoom.dist);
     const head = new THREE.Vector3(player.x, 1.58 + player.y, player.z);
     const cp = Math.cos(player.pitch), sp2 = Math.sin(player.pitch);
     const dir = new THREE.Vector3(Math.sin(player.yaw) * cp, sp2, Math.cos(player.yaw) * cp);
@@ -260,13 +283,21 @@ export function Player() {
       desiredPos = head.clone().add(new THREE.Vector3(fwd.x * 0.12, 0.04, fwd.z * 0.12));
       desiredLook = desiredPos.clone().add(dir);
     } else {
-      let dist = 4.2;
-      const back = head.clone().addScaledVector(dir, -dist);
-      const t = segmentHitsBox({ x: head.x, z: head.z }, { x: back.x, z: back.z }, camWalls);
-      if (t < 1) dist = Math.max(0.6, dist * t - 0.25);
-      desiredPos = head.clone().addScaledVector(dir, -dist).add(new THREE.Vector3(0, 0.35, 0));
-      desiredPos.y = Math.min(2.75, Math.max(0.35, desiredPos.y)); // stay under the ceiling
-      desiredLook = head.clone().addScaledVector(dir, 2).add(new THREE.Vector3(0, 0.1, 0));
+      // zoom (scroll): dekat = di belakang bahu, di bawah plafon, menabrak dinding; jauh = naik & menunduk ke ±54°,
+      // menatap pemain dari atas (pandangan atas ala Dota; plafon tersembunyi begitu kamera di atasnya)
+      const top = camZoom.top;
+      const pitch = THREE.MathUtils.lerp(player.pitch, ZOOM.TOP_PITCH, top);
+      const vdir = new THREE.Vector3(Math.sin(player.yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(player.yaw) * Math.cos(pitch));
+      let dist = Math.max(ZOOM.MIN_THIRD, camZoom.dist);
+      if (top < 0.25) {
+        const back = head.clone().addScaledVector(vdir, -dist);
+        const t = segmentHitsBox({ x: head.x, z: head.z }, { x: back.x, z: back.z }, camWalls);
+        if (t < 1) dist = Math.max(0.6, dist * t - 0.25);
+      }
+      desiredPos = head.clone().addScaledVector(vdir, -dist).add(new THREE.Vector3(0, 0.35 * (1 - top), 0));
+      desiredPos.y = Math.min(2.75 + top * 60, Math.max(0.35, desiredPos.y)); // dekat: tetap di bawah plafon
+      desiredLook = head.clone().addScaledVector(vdir, 2).add(new THREE.Vector3(0, 0.1, 0))
+        .lerp(new THREE.Vector3(player.x, 0.9 + player.y, player.z), top);
     }
     const rig = camera.userData.rig as { pos: THREE.Vector3; look: THREE.Vector3 } | undefined;
     if (rig) { rig.pos.copy(desiredPos); rig.look.copy(desiredLook); }

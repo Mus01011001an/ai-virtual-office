@@ -14,9 +14,8 @@ import { CameraDirector, PRESETS } from './CameraDirector';
 import { FOOTPRINT } from '../world/layout';
 import { RENDER, RenderController } from './RenderController';
 import { PERF_SHOT, PerfProbe } from './PerfProbe';
-import { INSIDE, insideIntensity, insideLight, insideView } from './inside';
+import { INSIDE, insideIntensity, insideLight } from './inside';
 import { CharacterShadows } from './CharacterShadows';
-import { Roof } from './Roof';
 import { OCC, patchScene } from './occlusion';
 import { player } from '../world/runtime';
 import { LIGHT_POOL, Q } from './quality';
@@ -60,24 +59,48 @@ function ShadowRoof() {
 }
 
 /**
- * Mode ringan: hanya LIGHT_POOL lampu ruangan, dipindah tiap frame ke lampu yang paling dekat dengan titik yang
- * dilihat kamera. Biaya per piksel turun (10 → 4 lampu) tanpa mengubah jumlah lampu (shader tidak dikompilasi ulang).
+ * Mode ringan/sedang: hanya LIGHT_POOL lampu ruangan (jumlah tetap → shader tidak dikompilasi ulang) untuk 10 lampu.
+ * Dipilih yang terdekat dari tempat kamera berdiri (di Overview: titik lantai yang dilihat), sedikit condong ke arah
+ * pandang. Dulu dipilih dari titik ±8 m di depan pandangan → lampu di atas/belakang pemain "mati" begitu kamera
+ * berpaling dan ruangan jadi gelap. Lampu yang sudah menyala diberi bonus jarak (tidak berkedip di antara dua lampu)
+ * dan pergantian memudar (`FADE` detik), tidak meloncat.
  */
+const FADE = 0.4;
 function NearestLights({ inside }: { inside: boolean }) {
   const refs = useRef<(THREE.PointLight | null)[]>([]);
   const camera = useThree((s) => s.camera);
   const dir = useMemo(() => new THREE.Vector3(), []);
-  useFrame(() => {
+  // tiap slot lampu: indeks lampu ruangan yang dipegang + kekuatan 0..1 (memudar saat berganti)
+  const slots = useMemo(() => Array.from({ length: LIGHT_POOL }, (_, n) => ({ room: n, k: 1 })), []);
+  useFrame((_, dtRaw) => {
+    const dt = Math.min(dtRaw, 0.1);
     camera.getWorldDirection(dir);
-    // titik fokus: ±8 m di depan kamera, di ketinggian lantai
-    const t = dir.y < -0.05 ? Math.min(40, camera.position.y / -dir.y) : 8;
-    const fx = camera.position.x + dir.x * t, fz = camera.position.z + dir.z * t;
-    const order = ROOM_LIGHTS.map((l, k) => [k, Math.hypot(l[0] - fx, l[1] - fz)] as const).sort((a, b) => a[1] - b[1]);
-    refs.current.forEach((light, n) => {
+    let ax: number, az: number;
+    if (camera.position.y > 6 && dir.y < -0.05) {
+      // Overview / shot dari atas: titik lantai yang dilihat
+      const t = Math.min(60, camera.position.y / -dir.y);
+      ax = camera.position.x + dir.x * t; az = camera.position.z + dir.z * t;
+    } else {
+      // di dalam gedung: tempat kamera berdiri, digeser 2,5 m ke arah pandang
+      const h = Math.hypot(dir.x, dir.z) || 1;
+      ax = camera.position.x + (dir.x / h) * 2.5; az = camera.position.z + (dir.z / h) * 2.5;
+    }
+    const held = new Set(slots.map((s) => s.room));
+    const score = (k: number) => Math.hypot(ROOM_LIGHTS[k][0] - ax, ROOM_LIGHTS[k][1] - az) - (held.has(k) ? 2 : 0);
+    const order = ROOM_LIGHTS.map((_, k) => k).sort((a, b) => score(a) - score(b));
+    const wanted = new Set(order.slice(0, slots.length));
+    const free = order.slice(0, slots.length).filter((k) => !held.has(k));
+    slots.forEach((slot, n) => {
+      if (wanted.has(slot.room)) slot.k = Math.min(1, slot.k + dt / FADE);
+      else {
+        slot.k = Math.max(0, slot.k - dt / FADE);
+        if (slot.k === 0 && free.length) slot.room = free.shift()!;
+      }
+      const light = refs.current[n];
       if (!light) return;
-      const [x, z, i, d] = ROOM_LIGHTS[order[n][0]];
+      const [x, z, i, d] = ROOM_LIGHTS[slot.room];
       light.position.set(x, 2.7, z);
-      light.intensity = inside ? insideIntensity(i, 2.7) : i * 1.15;
+      light.intensity = (inside ? insideIntensity(i, 2.7) : i * 1.15) * slot.k;
       light.distance = inside ? d * INSIDE.reach : d * 1.15;
     });
   });
@@ -126,7 +149,9 @@ function SfxListener() {
   const d = useMemo(() => new THREE.Vector3(), []);
   useFrame(() => {
     camera.getWorldDirection(d);
-    sfx.setListener(camera.position.x, camera.position.y, camera.position.z, d.x, d.z);
+    // Walk in: telinga di kepala pemain (zoom jauh / pandangan atas tetap mendengar langkah & suara di dekatnya)
+    if (useOffice.getState().mode === 'life') sfx.setListener(player.x, 1.6 + player.y, player.z, d.x, d.z);
+    else sfx.setListener(camera.position.x, camera.position.y, camera.position.z, d.x, d.z);
   });
   return null;
 }
@@ -135,7 +160,6 @@ export function OfficeScene() {
   const select = useOffice((s) => s.select);
   const mode = useOffice((s) => s.mode);
   const inside = useOffice((s) => insideLight(s.mode, s.shot));
-  const roofOn = useOffice((s) => insideView(s.mode, s.shot));
   const perfOn = usePerf().on;
   const weather = useOffice((s) => s.weather);
   const sky = useMemo(() => skyFor(weather), [weather]);
@@ -177,7 +201,6 @@ export function OfficeScene() {
         shadow-radius={4}
       />
       <ShadowRoof />
-      {roofOn && <Roof />}
       <CharacterShadows />
       <Occlusion />
       {/* inside, the lamps reach the corners too (see inside.ts) */}

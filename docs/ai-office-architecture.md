@@ -166,8 +166,8 @@ SSAO berbintik → ambient occlusion diganti **bayangan kontak**: blob di bawah 
 
 **Walk-in seperti video:** mulai di trotoar depan pintu utama (`PLAYER_SPAWN`, area jalan `PLAYER_BOUNDS`, jalur pohon
 dikosongkan), dua satpam, pintu terbuka saat didekati, **resepsionis** menyapa (gelembung + berdiri) dan `E` membuka
-panel *Reception* (siapa yang ada, status & lokasi live, *Take me there*). **Atap** tampil di Walk in / 1st person
-(`Roof.tsx`; Overview tetap cutaway). **Tembus pandang** (`occlusion.ts`): di 3rd person, fragmen di antara kamera dan
+panel *Reception* (siapa yang ada, status & lokasi live, *Take me there*). Atap gedung **dihapus** (2026-11-28, §22:
+zoom ke pandangan atas). **Tembus pandang** (`occlusion.ts`): di 3rd person, fragmen di antara kamera dan
 pemain (kerucut) dibuang berpola dither 4×4 di shader — berlaku untuk mesh batch & karakter; lantai/kaca/bayangan dikecualikan.
 
 **Kontrol:** desktop — klik atau `V` ke 1st person mengunci kursor (Pointer Lock) + crosshair `+` (kuning bila ada yang
@@ -198,7 +198,7 @@ Ukuran per frame (tim demo, 1280×720) — segitiga adalah penyebab utama berat 
 - **Hanya yang terlihat**: `StaticBatch` memecah gabungan per area 20×20 m sehingga frustum culling three.js melewati
   area di luar pandangan (dulu satu gabungan = seluruh gedung selalu digambar). Karakter (SkinnedMesh) juga di-cull.
 - **Mode ringan** (`scene/quality.ts`: iPad/iPhone, ≤4 core / ≤4 GB, atau `?lite`; `?full` memaksa penuh): resolusi 1×,
-  tanpa MSAA & bloom, peta bayangan 2048, hanya **4 lampu ruangan terdekat titik pandang** (`NearestLights`, jumlah
+  tanpa MSAA & bloom, peta bayangan 2048, hanya **4 lampu ruangan terdekat posisi kamera** (`NearestLights`, pudar + histeresis sejak §22, jumlah
   tetap → tanpa kompilasi ulang shader; lampu per piksel 12 → 6), daun pintu disembunyikan di Overview, separuh staf diam
   (resepsionis, satpam, cleaner, staf berjalan tetap).
 - **Panel tanpa `backdrop-filter`**: blur di atas kanvas WebGL sangat mahal di Safari iPad.
@@ -431,3 +431,28 @@ rak & produk (dulu kotak merah).
 **Hasil uji** (lokal :5173, demo, High): lobi dari pintu 177 draw call / 338k segitiga; lounge 123 / 327k; ruang kerja
 tajam (tanpa blur); Overview 234 draw call / 509k segitiga (dulu ±275 / ±250k — segitiga naik karena model & tepi
 miring, draw call turun). Low (`?lite`): lobi 148 draw call / 312k, tanpa error konsol.
+
+## 22. Lampu tidak padam saat berpaling, scroll = zoom, tanpa atap (2026-11-28)
+
+**Bug lampu** (grafik Low/Medium: hanya 4/6 dari 10 lampu ruangan yang dihitung) — `NearestLights` dulu memilih lampu
+terdekat dari titik ±8 m di depan arah pandang. Begitu kamera berpaling, lampu di atas/belakang pemain dipindah ke
+tempat lain → sekitar pemain gelap, dan pindahnya meloncat. Sekarang (`scene/OfficeScene.tsx`): diukur dari tempat
+kamera berdiri (digeser 2,5 m ke arah pandang; di Overview/pandangan atas: titik lantai yang dilihat), lampu yang sedang
+menyala mendapat bonus 2 m (tidak berkedip di antara dua lampu), dan pergantian memudar 0,4 s keluar + 0,4 s masuk.
+Uji `?lite`: lobi, ruang kerja, ruang manajer — lampu ruangan pemain tetap penuh di 8 arah pandang. High (10 lampu)
+tidak terpengaruh (semua lampu statis).
+
+**Scroll = zoom** (Walk in, desktop) — `scene/zoom.ts` + `store.zoom`/`setZoom` (disimpan `avo-office-new-zoom`):
+- 0 = orang pertama; 1,2–4,5 m = orang ketiga di belakang bahu (di bawah plafon, menabrak dinding seperti dulu);
+  lebih jauh kamera naik & menunduk ke ±54° sampai 24 m = pandangan atas ala Dota (menatap pemain, yaw tetap dari
+  mouse). Plafon otomatis tersembunyi saat kamera di atasnya.
+- Zoom masuk mentok di 1,2 m: gulir sedikit lagi (akumulasi 80) → orang pertama (trackpad tidak kebablasan); gulir
+  keluar dari orang pertama → 1,2 m. `V` / tombol 1st-3rd: orang pertama ↔ jarak orang ketiga terakhir.
+- Hanya saat menggulir di atas kanvas 3D (atau kursor terkunci); panel yang digulir tidak ikut zoom.
+- Lensa ikut zoom (`CameraDirector`): FOV 56° → 42° di pandangan atas, `near` 0,3 m (presisi kedalaman, tanpa kedip),
+  goyang tangan dikurangi. Telinga (`SfxListener`) di kepala pemain selama Walk in, jadi langkah tetap terdengar saat
+  zoom jauh.
+- Petunjuk kontrol: `Scroll` zoom · 1st ↔ top view (`ui/LifeHud.tsx`).
+
+**Atap dihapus** — `scene/Roof.tsx` dibuang (dulu tampil di Walk in); pandangan atas melihat isi gedung. `ShadowRoof`
+(tak terlihat, hanya menahan sinar matahari) tetap ada sehingga cahaya dalam ruangan tidak berubah.

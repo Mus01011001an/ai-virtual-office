@@ -48,6 +48,7 @@ export function LifeHud() {
         <span><span className="kbd">Space</span> jump</span>
         <span><span className="kbd">E</span> interact</span>
         <span><span className="kbd">V</span> 1st / 3rd person</span>
+        {CAN_LOCK && <span><span className="kbd">Scroll</span> zoom · 1st ↔ top view</span>}
         <span>{CAN_LOCK ? 'click → mouse look · drag also works' : 'point the mouse left/right to look · drag or swipe also works'}</span>
         <span><span className="kbd">Esc</span> cursor · ☰ menu</span>
       </div>

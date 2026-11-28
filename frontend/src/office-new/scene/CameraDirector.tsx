@@ -9,6 +9,7 @@ import { useOffice, type CameraPreset } from '../store/useOffice';
 import { findShot, shotAt } from './shots';
 import { player, shotCamera } from '../world/runtime';
 import { handheld } from './lens';
+import { camZoom } from './zoom';
 import { RENDER } from './RenderController';
 
 const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
@@ -65,12 +66,12 @@ export function CameraDirector() {
     // Presisi kedalaman: dari jauh (Overview, kamera ≥3 m dari sasaran) near 0,35 m → 3,5× lebih presisi, sehingga
     // permukaan yang berjarak beberapa mm tidak berkedip; masuk gedung / rekaman kamera tetap 0,1 m (dekat dinding).
     const pc = camera as THREE.PerspectiveCamera;
-    const wantNear = mode === 'life' || shotId ? 0.1 : 0.35;
+    const wantNear = shotId ? 0.1 : mode === 'life' ? (camZoom.top > 0.5 ? 0.3 : 0.1) : 0.35;
     if (pc.near !== wantNear) { pc.near = wantNear; pc.updateProjectionMatrix(); }
     if (mode === 'life') {
       const cam = camera as THREE.PerspectiveCamera;
       // Walk in: wider lens like the reference video (45° felt zoomed in, like a toy diorama)
-      const want = RENDER?.fov ?? (style === 'first' ? 64 : 56);
+      const want = RENDER?.fov ?? (style === 'first' ? 64 : 56 - 14 * camZoom.top);
       if (cam.fov !== want) { const f = cam.fov + (want - cam.fov) * Math.min(1, dt * 6); cam.fov = Math.abs(want - f) < 0.05 ? want : f; cam.updateProjectionMatrix(); }
       const rig = camera.userData.rig as { pos: THREE.Vector3; look: THREE.Vector3 };
       lifeBlend.current = Math.min(1, lifeBlend.current + dt / 1.3);
@@ -82,7 +83,7 @@ export function CameraDirector() {
       camera.lookAt(curLook.current);
       // handheld sway + head bob while walking (no depth of field: the picture stays sharp)
       walkAmt.current = THREE.MathUtils.damp(walkAmt.current, style === 'first' && player.moving && player.y < 0.02 ? 1 : 0, 8, dt);
-      bobY.current = settled ? handheld(camera, clock.elapsedTime, 1, walkAmt.current, player.running) : 0;
+      bobY.current = settled ? handheld(camera, clock.elapsedTime, 1 - 0.7 * camZoom.top, walkAmt.current, player.running) : 0;
       return;
     }
     const c = controls.current;

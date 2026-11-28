@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { loadWeather, saveWeather, type Weather } from '../scene/weather';
 import { saveMode, savedMode } from '../world/spawn';
+import { ZOOM, clampZoom, loadZoom, saveZoom } from '../scene/zoom';
 import { sfx } from '../scene/sfx';
 import type { AgentDataAdapter, OfficeSnapshot } from '../core/adapter';
 import type { Agent, AgentId, Lang, LogEntry, Message, OfficeEvent, Project, Task } from '../core/types';
@@ -41,6 +42,8 @@ interface OfficeState extends OfficeSnapshot {
   weather: Weather;
   setWeather(w: Partial<Weather>): void;
   cameraStyle: CameraStyle;
+  /** jarak kamera Walk in (m): 0 = orang pertama, besar = pandangan atas ala Dota (scroll) */
+  zoom: number;
   preset: CameraPreset;
   presetNonce: number;
   /** A camera shot for recording video (id from scene/shots.ts), playing in Overview. */
@@ -78,6 +81,7 @@ interface OfficeState extends OfficeSnapshot {
   setLang(l: Lang): void;
   setMode(m: ViewMode): void;
   setCameraStyle(c: CameraStyle): void;
+  setZoom(z: number): void;
   goPreset(p: CameraPreset): void;
   playShot(id: string | null): void;
   select(id: AgentId | null, tab?: PanelTab): void;
@@ -106,6 +110,9 @@ function speak(text: string, lang: Lang) {
   speechSynthesis.speak(u);
   return u;
 }
+
+/** Jarak orang ketiga terakhir: V / tombol 1st-3rd kembali ke sini dari orang pertama. */
+let lastThird = loadZoom() || ZOOM.DEFAULT;
 
 export const useOffice = create<OfficeState>((set, get) => {
   const blank = () => ({ agents: initialAgents(), tasks: {} as Record<string, Task>, projects: {} as Record<string, Project>, messages: [] as Message[], logs: [] as LogEntry[], activeProjectId: null as string | null });
@@ -157,7 +164,8 @@ export const useOffice = create<OfficeState>((set, get) => {
     running: true,
     mode: 'overview',
     weather: loadWeather(),
-    cameraStyle: 'third',
+    zoom: loadZoom(),
+    cameraStyle: loadZoom() === 0 ? 'first' : 'third',
     preset: 'overview',
     presetNonce: 0,
     shot: null,
@@ -235,7 +243,13 @@ export const useOffice = create<OfficeState>((set, get) => {
     setLang(l) { set({ lang: l }); },
     setMode(m) { saveMode(m); set({ mode: m, menuOpen: false, hint: null, modal: null, dashboardOpen: m === 'overview' }); },
     setWeather(w) { const next = { ...get().weather, ...w }; saveWeather(next); sfx.setRain(next.rain); set({ weather: next }); },
-    setCameraStyle(c) { set({ cameraStyle: c }); },
+    setCameraStyle(c) { get().setZoom(c === 'first' ? 0 : lastThird); },
+    setZoom(z) {
+      const v = clampZoom(z);
+      if (v > 0) lastThird = v;
+      saveZoom(v);
+      set({ zoom: v, cameraStyle: v === 0 ? 'first' : 'third' });
+    },
     goPreset(p) { set((s) => ({ preset: p, presetNonce: s.presetNonce + 1 })); },
     playShot(id) { set({ shot: id, selectedId: null, modal: null, chatWith: null }); },
     select(id, tab) { set({ selectedId: id, tab: tab ?? 'overview' }); },
