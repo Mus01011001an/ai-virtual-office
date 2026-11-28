@@ -18,9 +18,9 @@ export const GFX: GfxLevel = GFX_CHOICE === 'auto' ? AUTO_LEVEL : GFX_CHOICE;
 
 /** Pengaturan per level. */
 export const Q = {
-  low: { dpr: [1, 1] as [number, number], msaa: 0, pbr: false, dof: false, bloom: false, shadow: 2048, lights: 4, allStaff: false, doorsOverview: false },
-  medium: { dpr: [1, 1.25] as [number, number], msaa: 0, pbr: true, dof: true, bloom: true, shadow: 2048, lights: 6, allStaff: true, doorsOverview: true },
-  high: { dpr: [1, 1.5] as [number, number], msaa: 2, pbr: true, dof: true, bloom: true, shadow: 4096, lights: 10, allStaff: true, doorsOverview: true },
+  low: { dpr: [1, 1] as [number, number], msaa: 0, pbr: false, bloom: false, shadow: 2048, lights: 4, allStaff: false, doorsOverview: false },
+  medium: { dpr: [1, 1.25] as [number, number], msaa: 0, pbr: true, bloom: true, shadow: 2048, lights: 6, allStaff: true, doorsOverview: true },
+  high: { dpr: [1, 1.5] as [number, number], msaa: 2, pbr: true, bloom: true, shadow: 4096, lights: 10, allStaff: true, doorsOverview: true },
 }[GFX];
 
 /** Mode ringan (dipakai NPC & pintu). */

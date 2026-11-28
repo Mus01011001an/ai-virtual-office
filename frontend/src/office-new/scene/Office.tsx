@@ -8,7 +8,7 @@ import { AGENT_IDS } from '../core/types';
 import { PROFILES } from '../core/agents';
 import {
   FLOOR, ROOMS, WALL_RUNS, PIECE, piecePlacement, DESKS, STAFF_DESKS, MEETING_TABLE, MEETING_SEATS, GUEST_SEATS, MEETING_SCREEN,
-  WHITEBOARD, SOFA, LOUNGE_TABLE, KITCHEN_ISLAND, RECEPTION, LOBBY_SOFA, PLANTS,
+  WHITEBOARD, SOFA, LOUNGE_TABLE, KITCHEN_ISLAND, RECEPTION, RECEPTIONIST, LOBBY_SOFA, PLANTS,
   FLOOR_DECOR, WIDE, DOOR_OPEN, LARGE_DOOR_HALF, DESK_ROT, SOC_DESKS, roomAt, type WallStyle,
 } from '../world/layout';
 import { Bookcase, StaffDesk, Workstation } from './Furniture';
@@ -371,23 +371,35 @@ function MeetingScreen() {
   );
 }
 
-function WallSign({ position, light = false, width = 2.9 }: { position: [number, number, number]; light?: boolean; width?: number }) {
-  const tex = useCanvasTexture(1024, 200, (ctx) => {
+function WallSign({ position, light = false, width = 2.9, halo = false }: { position: [number, number, number]; light?: boolean; width?: number; halo?: boolean }) {
+  const draw = (ctx: CanvasRenderingContext2D, glow: boolean) => {
     ctx.font = `800 92px ${FONT}`;
-    ctx.fillStyle = light ? '#fff6ea' : '#1d2433';
+    if (glow) { ctx.shadowColor = '#ffb867'; ctx.shadowBlur = 36; }
+    ctx.fillStyle = light ? '#f6ead6' : '#1d2433';
     ctx.fillText('AGENT', 30, 130);
-    ctx.fillStyle = light ? '#ffc477' : '#4f6bff';
+    ctx.fillStyle = light ? '#d7a65e' : '#4f6bff';
     ctx.fillText('OFFICE', 30 + ctx.measureText('AGENT ').width, 130);
     ctx.font = `600 26px ${MONO}`;
-    ctx.fillStyle = light ? '#f1dcc4' : '#5b6478';
+    ctx.fillStyle = light ? '#e8d3b4' : '#5b6478';
     ctx.fillText('AI TEAM · ALWAYS ON', 34, 180);
-  }, [light]);
+  };
+  const tex = useCanvasTexture(1024, 200, (ctx) => draw(ctx, false), [light]);
+  const glowTex = useCanvasTexture(1024, 200, (ctx) => { if (halo) { draw(ctx, true); draw(ctx, true); } }, [light, halo]);
   return (
-    <mesh position={position}>
-      <planeGeometry args={[width, width * 0.195]} />
-      {/* potongan alpha, bukan transparan: urutan gambar transparan bisa bertukar saat kamera bergerak → kedip */}
-      <meshBasicMaterial map={tex} alphaTest={0.35} toneMapped={false} />
-    </mesh>
+    <group position={position}>
+      {/* halo hangat di belakang huruf (aditif: tanpa urutan gambar → tidak berkedip) */}
+      {halo && (
+        <mesh position={[0, 0, -0.012]} scale={1.04}>
+          <planeGeometry args={[width, width * 0.195]} />
+          <meshBasicMaterial map={glowTex} transparent opacity={0.32} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
+        </mesh>
+      )}
+      <mesh>
+        <planeGeometry args={[width, width * 0.195]} />
+        {/* potongan alpha, bukan transparan: urutan gambar transparan bisa bertukar saat kamera bergerak → kedip */}
+        <meshBasicMaterial map={tex} alphaTest={0.35} toneMapped={false} />
+      </mesh>
+    </group>
   );
 }
 
@@ -606,33 +618,43 @@ function Kitchen() {
   );
 }
 
+/** Garis LED hangat (dinding logo lobi). */
+function LedStrip({ from, to, y, z }: { from: number; to: number; y: number; z: number }) {
+  return (
+    <mesh position={[(from + to) / 2, y, z]}>
+      <boxGeometry args={[to - from, 0.016, 0.016]} />
+      <meshBasicMaterial color="#ffd9a6" toneMapped={false} />
+    </mesh>
+  );
+}
+
+/**
+ * Lobi (2026-11-28): rapi & berkesan mewah — konter stadion bilah kayu + puncak batu + LED (Blender) di sumbu pintu
+ * masuk, dinding logo bilah kayu dengan logo kuningan bercahaya, ruang tunggu (sofa, kursi kulit, meja batu) di sisi
+ * barat. Barang kecil di konter dihapus; dekorasi lantai (kursi, meja, tanaman) ada di FLOOR_DECOR.
+ */
 function Reception() {
   const r = RECEPTION;
   return (
     <group>
-      <Prop name="Desk_06" position={[r.x, 0, r.z]} />
+      <Prop name="Reception_Desk_01" position={[r.x, 0, r.z]} />
+      <Prop name="Chair_05" position={[RECEPTIONIST.x, 0, RECEPTIONIST.z]} />
+      <Prop name="Computer_Monitor_01" position={[RECEPTIONIST.x, 0.75, r.z - 0.14]} rot={Math.PI} />
+      <Prop name="Computer_Keyboard_02" position={[RECEPTIONIST.x, 0.75, r.z - 0.36]} rot={Math.PI} />
+      <Prop name="Computer_Mouse_02" position={[RECEPTIONIST.x - 0.33, 0.75, r.z - 0.36]} rot={Math.PI} />
+      <Prop name="Flowers_01" position={[r.x - 1.25, 1.09, r.z - 0.28]} />
+      {/* ujung barat 1 cm di dalam dinding luar: tidak ada muka sebidang dengan sisi luar gedung (kedip) */}
+      <Prop name="B:FeatureWall_Wood_01" position={[-19.99, 0, 5.155]} />
       <Prop name="B:FeatureWall_Wood_01" position={[-17.5, 0, 5.155]} />
       <Prop name="B:FeatureWall_Wood_01" position={[-15, 0, 5.155]} />
-      <WallSign position={[-14.6, 2.15, 5.26]} light width={4.2} />
+      <LedStrip from={-19.85} to={-12.5} y={0.012} z={5.262} />
+      <LedStrip from={-19.85} to={-12.5} y={2.965} z={5.262} />
+      <WallSign position={[-15, 2.3, 5.275]} light halo width={3.3} />
       <WallSign position={[-15, 3.23, 17.83]} light width={2.6} />
-      {/* Desk_06 is L-shaped: work surface (0.75) along z -0.2..0.5 and a left wing; a narrow raised counter (0.93) on the visitor side */}
-      <Prop name="Plant_Flowers_01" position={[r.x + 1.5, 0.75, r.z - 0.05]} />
-      <Prop name="Rug_05" position={[-18.2, 0.005, 11.0]} rot={Math.PI / 2} />
-      <Prop name="Computer_Monitor_01" position={[r.x + 0.3, 0.75, r.z + 0.3]} rot={Math.PI} />
-      <Prop name="Computer_Keyboard_02" position={[r.x + 0.3, 0.75, r.z - 0.02]} rot={Math.PI} />
-      <Prop name="Computer_Mouse_02" position={[r.x - 0.05, 0.75, r.z - 0.02]} rot={Math.PI} />
-      <Prop name="Plant_Flowers_02" position={[r.x - 1.35, 0.93, r.z - 0.1]} />
-      <Prop name="Coffee_Tray_01_Full" position={[r.x + 1.35, 0.93, r.z + 0.6]} />
-      <Prop name="Sign_Receptionist_01" position={[r.x - 0.2, 1.005, r.z + 0.58]} />
-      <Prop name="Chair_05" position={[r.x + 0.3, 0, r.z - 0.7]} />
-      <Prop name="Couch_04" position={[LOBBY_SOFA.x, 0, LOBBY_SOFA.z]} rot={Math.PI / 2} />
-      <Prop name="CoffeeTable_02" position={[LOBBY_SOFA.x + 1.3, 0, LOBBY_SOFA.z]} rot={Math.PI / 2} />
-      <Prop name="Book_Magazine_02" position={[LOBBY_SOFA.x + 1.3, 0.51, LOBBY_SOFA.z]} rot={0.8} />
-      <Prop name="Rug_03" position={[-15.0, 0.005, 12.8]} rot={Math.PI / 2} palette="04" scale={[1.3, 1, 1.6]} />
-      <Prop name="WaterCooler_01" position={[-19.5, 0, 8.05]} rot={Math.PI / 2} />
+      <Prop name="Lobby_Rug_01" position={[-18.05, 0.005, LOBBY_SOFA.z]} rot={Math.PI / 2} />
+      <Prop name="Lobby_Sofa_01" position={[LOBBY_SOFA.x, 0, LOBBY_SOFA.z]} rot={Math.PI / 2} />
+      <Prop name="Lobby_Mat_01" position={[-15, 0.005, 14.15]} />
       <Prop name="Sign_Exit_01" position={[-15, 2.75, 14.8]} rot={Math.PI} />
-      <Prop name="Rug_03" position={[-15, 0.011, 14.0]} rot={Math.PI / 2} palette="02" />
-      <Prop name="Certificate_01" position={[-19.82, 1.8, 8.6]} rot={Math.PI / 2} />
     </group>
   );
 }

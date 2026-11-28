@@ -6,6 +6,7 @@ import { SyntyAvatar, type Wearable } from './SyntyAvatar';
 import type { Gesture, Pose, PoseMode } from './Avatar';
 import type { Palette } from './assets';
 import { RECEPTIONIST, type Spot } from '../world/layout';
+import type { Appearance } from '../../state/types';
 import { collide, findPath, type P } from '../world/nav';
 import { personAhead, player, walkers } from '../world/runtime';
 import { Q } from './quality';
@@ -13,14 +14,16 @@ import { Html } from '@react-three/drei';
 import { useOffice } from '../store/useOffice';
 import { labelPortal } from './labels';
 
-interface Still { kind: 'still'; model: string; palette?: Palette; at: Spot; mode: PoseMode; talking?: boolean; gesture?: Gesture; wear?: Wearable[]; /** sapaan saat pemain mendekat (walk-in) */ greet?: string }
+interface Still { kind: 'still'; model: string; palette?: Palette; at: Spot; mode: PoseMode; talking?: boolean; gesture?: Gesture; wear?: Wearable[]; /** sapaan saat pemain mendekat (walk-in) */ greet?: string; look?: Partial<Appearance> }
 interface Walker { kind: 'walk'; model: string; palette?: Palette; wear?: Wearable[]; stops: { at: Spot; wait: number; gesture?: Gesture; talking?: boolean }[] }
 type Npc = Still | Walker;
 
 // Disetujui pemilik 2026-11-28: tidak ada lagi staf figuran (mengetik, ngobrol, main game, jalan-jalan, satpam,
 // cleaner). NPC hanya yang memberi informasi tentang office/ruang — saat ini resepsionis (E: info office).
 const STAFF: Npc[] = [
-  { kind: 'still', model: 'SK_Chr_Business_Female_02', at: RECEPTIONIST, mode: 'type', wear: ['Earpiece', 'Nametag'], greet: 'Welcome to the office! 👋' },
+  // seragam blazer navy + rambut gelap (dulu kemeja krem + rambut pirang → tampak putih semua di lobi)
+  { kind: 'still', model: 'SK_Chr_Business_Female_02', at: RECEPTIONIST, mode: 'type', wear: ['Earpiece', 'Nametag'], greet: 'Welcome to the office! 👋',
+    look: { top: '#1e2a3f', bottom: '#1b1f29', hair: '#2a1d16', hairStyle: 2, skin: '#c99670', jacket: true, glasses: false } },
 ];
 
 const angleLerp = (a: number, b: number, k: number) => {
@@ -33,7 +36,7 @@ function StillNpc({ npc, index }: { npc: Still; index: number }) {
   const pose = useRef<Pose>({ mode: npc.mode, talking: !!npc.talking, gesture: npc.gesture ?? null });
   return (
     <group position={[npc.at.x, 0, npc.at.z]} rotation={[0, npc.at.rot, 0]}>
-      <SyntyAvatar model={npc.model} palette={npc.palette} seed={`npc-${index}`} pose={pose} wear={npc.wear} />
+      <SyntyAvatar model={npc.model} palette={npc.palette} seed={`npc-${index}`} pose={pose} wear={npc.wear} look={npc.look} />
       {npc.greet && <Greeting text={npc.greet} at={npc.at} pose={pose} />}
     </group>
   );

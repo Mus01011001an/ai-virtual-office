@@ -137,7 +137,7 @@ export function buildRig(scene: THREE.Object3D, palette: Palette, props: THREE.O
 const e = new THREE.Euler(0, 0, 0, 'XYZ');
 const R = new THREE.Quaternion();
 
-type AvatarProps = { model: string; pose: MutableRefObject<Pose>; visible?: boolean; palette?: Palette; wear?: Wearable[]; /** variasi wajah/rambut per orang (kit CC0) */ seed?: string };
+type AvatarProps = { model: string; pose: MutableRefObject<Pose>; visible?: boolean; palette?: Palette; wear?: Wearable[]; /** variasi wajah/rambut per orang (kit CC0) */ seed?: string; /** timpa tampilan blocky (mis. seragam resepsionis) */ look?: Partial<Appearance> };
 
 /** Tampilan orang CC0 per karakter Synty (warna mengikuti referensi: Michael jas kuning, Olivia rambut pirang, dst.). */
 const LOOK: Record<string, { shirt: string; hair: string; hairStyle: 'short' | 'long' | 'bun' | 'cap' | 'none'; skin?: string }> = {
@@ -191,10 +191,12 @@ export function SyntyAvatar(p: AvatarProps) {
   return <BlockyFallback {...p} />;
 }
 
-function BlockyFallback({ model, pose, visible, seed }: AvatarProps) {
+function BlockyFallback({ model, pose, visible, seed, look }: AvatarProps) {
   const auto = useId();
   const key = seed ?? auto;
-  const appearance = useMemo(() => blockyLook(model, key), [model, key]);
+  const lookKey = JSON.stringify(look ?? {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const appearance = useMemo(() => ({ ...blockyLook(model, key), ...look }), [model, key, lookKey]);
   return <BlockyAvatar appearance={appearance} pose={pose} seed={hashSeed(key) % 100} visible={visible} />;
 }
 

@@ -46,7 +46,7 @@ scene/              Office/Fitout/Furniture/Agents/Npcs/Player/CameraDirector (r
   assets.tsx        <Prop>: Synty glTF bila ada, selain itu kit CC0
   assetMode.ts      deteksi /office-new/models/office_props.gltf
   fallback/kit.ts   ±550 nama prop Synty → geometri prosedural (regex), material dibagi untuk StaticBatch
-  fallback/textures.ts  kanvas: herringbone, karpet, ubin, bata, papan tanda, layar
+  fallback/textures.ts  kanvas: batu poles (marmer), karpet, ubin, bata, papan tanda, layar
   SyntyAvatar.tsx   rig Synty bila ada, selain itu Avatar prosedural dengan warna per karakter
 hq/                 Agent HQ: HqScene (3D, useDesks: skill Claude atau agen), HqHud (tile, prompt, live log, approval),
                     claudeHq.ts (state skill dari hook: Skill tool → bangun, Notification/Stop → WAITING FOR YOUR OK), hqState
@@ -249,7 +249,7 @@ sekat cubicle tinggi, dinding resepsi panel kayu. Office Baru sebelumnya terang 
 | Grade dalam | saturasi −0.14, kontras +0.14, vignette 0.62 (overview tetap) | `scene/OfficeScene.tsx` |
 | Plafon | warna greige/coklat gelap, lampu panel redup & hanya tiap 2 ubin | `fallback/kit.ts`, `Fitout.tsx` CEILING |
 | Workspace | sekat cubicle 1,2 → 1,38 m, panel teal `#5a7a7a`, karpet maroon `#5e2620` motif kotak halus, sticky note tegak kecil di panel (dulu lempeng kuning datar), papan gabus di atas meja | `fallback/kit.ts`, `fallback/textures.ts`, `Furniture.tsx` |
-| Resepsi | konter kayu L (Desk_06) dengan konter tamu 0,93 m, kursi kulit sandaran tinggi (Chair_08), lantai herringbone beige, dinding `#cbbfab` | `fallback/kit.ts` |
+| Resepsi | diganti lobi baru (§21): konter stadion Blender, dinding logo walnut, lantai batu poles | `Office.tsx`, `fallback/kit.ts` |
 | Panel kayu dinding | `FeatureWall_*` sebelumnya terkubur di dalam tembok (tembok kit tebal 0,15) → digeser ke muka tembok | `Office.tsx`, `Fitout.tsx` |
 
 Penghalang pintu: selain patung, `Plant_06` di depan pintu koridor→workspace timur (19,35; −0,4) dipindah ke (19,35; 1,0).
@@ -269,10 +269,9 @@ tekstur & cahaya Poly Haven, karakter tidak tembus barang, efek suara tepat mome
    Mixamo; glb tidak di-commit). `BlockyAvatar` memadukan klip (bobot teredam, tanpa loncatan) untuk jalan/lari/diam;
    duduk, mengetik, bicara, gestur tetap prosedural. Klip diputar secepat gerak sebenarnya (`Pose.speed`:
    NPC 1,25, agen 1,5×speed, pemain 2,2/5,0 m/s) agar kaki tidak meluncur.
-2. **Lensa asli** (`scene/lens.ts`) — depth of field di Walk in & rekaman kamera (Medium/High): fokus ke pemain (orang
-   ketiga) atau autofokus ke benda di tengah layar (orang pertama, uji sinar ke kotak tabrak + orang); goyang tangan
-   halus + ayunan kepala seirama langkah. Composer di-`key` per mode (melepas DOF di composer yang sama → GL
-   INVALID_OPERATION, layar beku).
+2. **Kamera dipegang tangan** (`scene/lens.ts`) — goyang tangan halus + ayunan kepala seirama langkah (Walk in &
+   rekaman kamera). Depth of field (latar blur) **dihapus** 2026-11-28 (§21): di High semua tampak kabur & seperti
+   miniatur.
 3. **Poly Haven** (CC0, `public/assets`) — HDRI interior `lebombo_1k.hdr` untuk cahaya pantul; bahan `pbr()` di
    `fallback/kit.ts`: kain `fabric_pattern_07` (sofa, kursi kantor, panel cubicle), kulit `brown_leather`
    (kursi rapat/tamu), kayu `wood_table_001` (meja, konter, rak, panel kayu), dinding `beige_wall_001`, plafon
@@ -356,13 +355,9 @@ avatar tak terlihat. Baru: `sfx.jump()` saat loncat, `sfx.land()` saat mendarat 
 | Area tabrak barang di atas | dihapus bersama bendanya | `world/layout.ts` (`OBSTACLES`) |
 
 **Furnitur Blender** — kursi & meja tidak lagi kotak: `tools/office-new/blender/furniture.py` (Blender 5.x headless;
-bevel + weighted normal, sudut membulat, sandaran melengkung, kaki bintang beroda) →
-`frontend/public/office-new/kit/furniture.glb` (±413 KB, 10 model: `chair_office`, `chair_exec`, `chair_meeting`,
-`desk_150x75`, `desk_160x80`, `desk_180x75`, `table_conference`, `table_small`, `table_round`, `table_coffee`). Build ulang:
-
-```
-/Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup --python tools/office-new/blender/furniture.py -- frontend/public/office-new/kit/furniture.glb
-```
+bevel + weighted normal, sudut membulat, sandaran melengkung, kaki bintang beroda): `chair_office`, `chair_exec`,
+`chair_meeting`, `desk_150x75`, `desk_160x80`, `desk_180x75`, `table_conference`, `table_small`, `table_round`,
+`table_coffee`. Sejak §21 dibangun bersama `props.py` lewat `build.py` (perintah di §21).
 
 `scene/fallback/kitModels.ts` memuat glb saat boot (`main.tsx`, bersama `probeAssets`); `kitModel(name, materials)`
 mengganti material Blender (Fabric/Leather/Wood/Laminate/Chrome/Plastic/Metal) dengan material kit (Poly Haven di
@@ -372,3 +367,67 @@ Medium/High, polos di Low) sehingga tetap ikut `StaticBatch`. Dipakai `fallback/
 **Hasil uji** (lokal :5173, demo): kursi/meja Blender tampil di cubicle & ruang rapat (kursi menghadap meja); draw call
 Walk in ±243 (ruang rapat 65); karakter ±46 → 7; ☰ (Resume/Respawn/cuaca) jalan; pagi/siang/sore/malam + hujan tampil;
 refresh → posisi terakhir; langkah orang pertama, loncat & mendarat berbunyi; Low (`?lite`) tanpa error.
+
+## 21. Seluruh gedung tidak kotak-kotak, tanpa blur, lobi "wah" (2026-11-28)
+
+Keluhan: bangunan terasa seperti Roblox/mainan (benda = balok polos), grafik High kabur total, resepsionis serba putih,
+lobi kurang rapi. Video referensi memakai aset Synty POLYGON Office (berbayar); di sini semuanya dimodelkan sendiri.
+
+**Tanpa blur** — `DepthOfField` dihapus dari `OfficeScene` (juga `LensFocus`, `FOCUS`/`autoFocus` di `lens.ts`,
+flag `dof` di `quality.ts`). Blur lensa + fokus dekat = efek miniatur (tilt-shift) → justru membuat kantor tampak seperti
+mainan. Bloom, grade warna, vignette tetap.
+
+**Model Blender** — skrip dipecah: `tools/office-new/blender/lib.py` (helper bevel/prisma/daun/layar),
+`furniture.py` (kursi & meja), `props.py` (baru), `build.py` (bangun semua → satu GLB, opsional render pratinjau):
+
+```
+/Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup --python tools/office-new/blender/build.py -- frontend/public/office-new/kit/furniture.glb [preview.png]
+```
+
+`furniture.glb` ±1,26 MB, 30 model. Baru di `props.py` (nama Blender → dipakai kit untuk):
+
+| Model | Dipakai untuk | Catatan |
+|---|---|---|
+| `reception_desk` | `Reception_Desk_01` | stadion 3,6 × 1,0 m, bilah walnut vertikal, puncak batu, garis LED di bawah puncak & di kaki (tampak melayang), meja kerja di belakang |
+| `sofa_3`, `armchair` | `Couch_0N` (lebar 2,0/2,4 m seperti dulu), `Lobby_Sofa_01`, `Lobby_Armchair_01` | bantal empuk (bevel 4 segmen), bantal lempar, kaki kayu |
+| `coffee_round`, `side_table` | `Lobby_CoffeeTable_01`, `Lobby_SideTable_01` | puncak batu, kaki logam/kuningan |
+| `plant_tall`, `plant_snake`, `plant_bush`, `plant_desk` | `Plant_12–14`, `Plant_03/06`, `Plant_09/11` (rak), lainnya; `Flowers*` | daun berlipat & melengkung (2 sisi), pot berbibir + tanah; dulu bola hijau |
+| `monitor`, `keyboard`, `mouse`, `pc_tower` | `Computer_Monitor*` (juga ganda/tripel/lengkung), `Computer_Keyboard*`, `Computer_Mouse*`, `Computer_Tower*` | layar = bidang ber-UV → tekstur layar kit |
+| `pendant_dome`, `pendant_ring` | `Light_01–05` (kap hitam/putih/kuningan), `Lobby_Pendant_01` | cincin cahaya Ø1,6 m di tengah lobi |
+| `cabinet_tall`, `cabinet_low` | `Cabinets_0N` | laci dengan celah + pegangan |
+| `fridge`, `water_cooler`, `sculpture_rings` | `Fridge*`, `WaterCooler*`, `Sculpture_0N` | kulkas stainless 2 pintu + laci, galon kaca, patung cincin kuningan |
+
+Bahan per nama material Blender di `fallback/kit.ts` `MODEL_DEFAULT` (Fabric, Fabric2, Leather, Wood, WoodDark, Laminate,
+Stone, Metal, Chrome, Plastic, Keys, Brass, Steel, Glow, GlowBlue, Screen, Glass, Leaf, Leaf2, Pot, Soil, Trunk); pemanggil
+menimpa per prop lewat `kit(name, { … })`. Daun memakai material dua sisi (`mat(…, { double: true })`; `plainMaterial`
+ikut menyimpan `side`). Tanpa GLB → bentuk kotak lama tetap jalan.
+
+**Tepi miring untuk semua kotak prop** — `r()`/`b()` di `fallback/kit.ts` membuat `chamferBox` (44 segitiga, tepi
+miring ≤ 1,2 cm, normal per muka) untuk prop di Medium/High: sekat cubicle, rak, lemari, papan, meja kecil, dst. Tidak
+untuk dinding/lantai/plafon (`SM_Bld_*`: sambungan antar potongan akan beralur), material bertekstur tanpa `boxUV`,
+kaca, layar, dan grafis Low.
+
+**Lantai** — kayu `03/04` (ruang rapat, koridor) dulu herringbone kanvas (tampak petak-petak) → papan PBR
+`wood_floor_worn` warna walnut. Lobi: `B:Floor_Stone_01` = batu poles taupe (`textures.ts` `marble()`: ubin 1,25 m,
+urat halus, nat tipis; kekasaran 0,16 → memantulkan HDRI). Mesin minuman: rangka arang + etalase kaca berlampu berisi
+rak & produk (dulu kotak merah).
+
+**Lobi baru** (`Office.tsx` `Reception`, `layout.ts`, `Fitout.tsx`):
+- Sumbu pintu masuk (x −15): konter stadion di z 7,7 (`RECEPTION`), resepsionis duduk di belakangnya
+  (`RECEPTIONIST`), dinding logo 2,5 m di belakang: bilah walnut gelap selebar dinding (x −19,99…−12,5), garis LED hangat
+  atas & bawah (`LedStrip`), logo "AGENT OFFICE" warna krem/kuningan dengan halo aditif (`WallSign halo`).
+- Plafon kayu gelap (`Ceiling_02`), cincin cahaya besar di tengah lobi, 3 lampu kubah di atas konter (digantung lebih
+  tinggi agar tidak menutupi logo dari pintu).
+- Ruang tunggu sisi barat: sofa hijau sage + bantal camel, 2 kursi kulit cognac, meja kopi batu, meja samping kuningan,
+  karpet wol, tanaman (fiddle leaf di sudut, lidah mertua mengapit dinding logo).
+- Dihapus (lebih rapi): rak buku warna-warni, gantungan mantel, troli surat, 2 kursi tamu di depan konter, sofa kedua,
+  galon, sertifikat, 3 karpet, papan "RECEPTIONIST", dan semua barang kecil di konter (telepon, permen, kartu, printer,
+  tas). Tersisa monitor, keyboard, mouse resepsionis + satu tanaman kecil.
+- Resepsionis: blazer navy + kemeja putih + dasi, rambut gelap dicepol (dulu kemeja krem + rambut pirang → tampak putih
+  semua). Lewat `look` di `Npcs.tsx` (`SyntyAvatar` menggabung `look` ke tampilan blocky).
+- Kotak tabrak: konter `box(RECEPTION, 3,72 × 1,07)`; kursi/meja/tanaman lobi di `FLOOR_DECOR` (`fitDecor` menyesuaikan
+  ke model).
+
+**Hasil uji** (lokal :5173, demo, High): lobi dari pintu 177 draw call / 338k segitiga; lounge 123 / 327k; ruang kerja
+tajam (tanpa blur); Overview 234 draw call / 509k segitiga (dulu ±275 / ±250k — segitiga naik karena model & tepi
+miring, draw call turun). Low (`?lite`): lobi 148 draw call / 312k, tanpa error konsol.

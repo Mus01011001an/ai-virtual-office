@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { useOffice } from '../store/useOffice';
 import { Prop } from './assets';
 import { insideView } from './inside';
-import { ROOMS, PIECE, MEETING_TABLE, KITCHEN_ISLAND, RECEPTION, LOBBY_SOFA, POOL_TABLES, FOOSBALL, SOFA, TABLE_TENNIS, roomAt } from '../world/layout';
+import { ROOMS, PIECE, MEETING_TABLE, KITCHEN_ISLAND, RECEPTION, POOL_TABLES, FOOSBALL, SOFA, TABLE_TENNIS, roomAt } from '../world/layout';
 import { StaticBatch } from './StaticBatch';
 
 const H = Math.PI / 2, P = Math.PI;
@@ -132,14 +132,9 @@ const LOUNGE: Item[] = [
   ['B:FeatureWall_Square_01', -9.845, 0, 0, H], ['B:FeatureWall_Square_02', -9.845, 0, 5, H],
 ];
 
+// lobi rapi: hanya patung di atas alasnya + tanaman kecil di meja kopi & meja samping (konter di Office.tsx)
 const RECEPTION_ITEMS: Item[] = [
-  // on the reception desk (see Reception in Office.tsx for its shape)
-  ['Sculpture_02', -12.4, 0.31, 14.1], ['Book_Phone_01', r.x - 1.15, 0.75, r.z - 0.7, 0.2],
-  ['Phone_Portable_01_Base_01', r.x + 0.85, 0.75, r.z + 0.05, P], ['Phone_Portable_01_Handset_01', r.x + 0.85, 0.76, r.z + 0.05, P],
-  ['Jellybeans_01', r.x + 0.75, 0.93, r.z + 0.6], ['Mints_01', r.x + 1.0, 0.93, r.z + 0.6], ['NamePlate_01', r.x + 0.35, 0.93, r.z + 0.6],
-  ['CardRoller_01', r.x - 1.15, 0.75, r.z - 0.35], ['ID_Card_01', r.x - 1.0, 0.75, r.z - 0.95, 0.3], ['Card_Reader_01', r.x - 0.35, 0.75, r.z + 0.05, P],
-  ['Printer_Mini_01', r.x + 1.25, 0.75, r.z + 0.2, P], ['Flowers_01', LOBBY_SOFA.x + 1.3, 0.89, LOBBY_SOFA.z + 0.35],
-  ['Briefcase_03', -18.0, 0, 9.5, 0.4], ['Light_08', -17.3, 2.55, 5.24], ['Light_08', -12.7, 2.55, 5.24],
+  ['Sculpture_02', -12.4, 0.31, 14.1], ['Flowers_02', -18.0, 0.42, 10.6], ['Plant_Flowers_01', -19.4, 0.55, 12.25],
 ];
 
 const SECURITY: Item[] = [
@@ -292,7 +287,7 @@ export function Fitout() {
 
 // ------------------------------------------------------------------ ceiling (only seen from inside)
 const CEILING_TILE: Record<string, string> = {
-  meeting: 'B:Ceiling_02', manager: 'B:Ceiling_02', kitchen: 'B:Ceiling_01', reception: 'B:Ceiling_01', lounge: 'B:Ceiling_01',
+  meeting: 'B:Ceiling_02', manager: 'B:Ceiling_02', kitchen: 'B:Ceiling_01', reception: 'B:Ceiling_02', lounge: 'B:Ceiling_01',
   'wc-women': 'B:Ceiling_Panel_02', 'wc-men': 'B:Ceiling_Panel_02',
 };
 const CEILING: Item[] = ROOMS.flatMap((room) => {
@@ -317,7 +312,9 @@ const CEILING_EXTRAS: Item[] = [
   // pendants over tables
   ['Light_04', t.x - 1.2, 3.0, t.z], ['Light_04', t.x + 1.2, 3.0, t.z], ['Light_05', -6.25, 3.0, -11.3],
   ['Light_02', k.x - 0.7, 3.0, k.z], ['Light_02', k.x, 3.0, k.z], ['Light_02', k.x + 0.7, 3.0, k.z],
-  ['Light_03', r.x - 0.8, 3.0, r.z], ['Light_03', r.x + 0.8, 3.0, r.z],
+  // kubah di atas konter digantung lebih tinggi (kabel masuk plafon) agar tidak menutupi logo dari pintu masuk
+  ['Light_03', r.x - 1.15, 3.35, r.z - 0.05], ['Light_03', r.x, 3.35, r.z - 0.05], ['Light_03', r.x + 1.15, 3.35, r.z - 0.05],
+  ['Lobby_Pendant_01', -15, 3.0, 11.4], // cincin cahaya besar di tengah lobi
   ['Light_Fluorescent_01', 7.5, 3.0, -11.0], ['Light_Fluorescent_01', 7.5, 3.0, -8.0],
   // fans, air conditioning, projectors
   ['CeilingFan_01', -5, 3.0, 5], ['CeilingFan_01', -5, 3.0, 11], ['CeilingFan_02', 12.5, 3.0, -11.5],

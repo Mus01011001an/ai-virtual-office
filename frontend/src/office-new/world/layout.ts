@@ -47,7 +47,7 @@ export const ROOMS: Room[] = [
   { id: 'security', name: 'Cyber Security', minX: 20, maxX: 30, minZ: -15, maxZ: -5, floor: 'B:Floor_Carpet_01', palette: '04', walls: '04', style: 'blank' },
   { id: 'corridor', name: 'Corridor', minX: -20, maxX: 30, minZ: -5, maxZ: -2.5, floor: 'B:Floor_Wood_01', palette: '04', walls: '01', style: 'baseboard' },
   { id: 'kitchen', name: 'Kitchen', minX: -20, maxX: -10, minZ: -2.5, maxZ: 5, floor: 'B:Floor_Tiles_01', palette: '02', walls: '01', style: 'trim' },
-  { id: 'reception', name: 'Reception', minX: -20, maxX: -10, minZ: 5, maxZ: 15, floor: 'B:Floor_Wood_01', palette: '03', walls: '01', style: 'trim' },
+  { id: 'reception', name: 'Reception', minX: -20, maxX: -10, minZ: 5, maxZ: 15, floor: 'B:Floor_Stone_01', palette: '03', walls: '02', style: 'trim' },
   { id: 'wc-women', name: 'Restroom', minX: -2.5, maxX: 0, minZ: 10, maxZ: 15, floor: 'B:Floor_Tiles_01', palette: '01', walls: '02', style: 'blank' },
   { id: 'wc-men', name: 'Restroom', minX: 0, maxX: 2.5, minZ: 10, maxZ: 15, floor: 'B:Floor_Tiles_01', palette: '01', walls: '02', style: 'blank' },
   { id: 'lounge', name: 'Lounge', minX: -10, maxX: 2.5, minZ: -2.5, maxZ: 15, floor: 'B:Floor_Wood_01', palette: '01', walls: '01', style: 'baseboard' },
@@ -218,8 +218,10 @@ export const LOUNGE_TABLE = { x: -5.0, z: 12.2, w: 1.0, d: 0.7 };
 export const BEANBAGS: [number, number, string, number][] = [[-7.6, 11.6, 'Chair_BeanBag_01', 0.8], [-3.4, 11.0, 'Chair_BeanBag_02', -0.8], [-8.6, -0.6, 'Chair_BeanBag_03', 0.5], [0.8, 0.2, 'Chair_BeanBag_04', -0.6]];
 
 // ------------------------------------------------------------------ reception
-export const RECEPTION = { x: -15.2, z: 9.0 };
-export const LOBBY_SOFA = { x: -18.9, z: 11.0 };
+/** Konter resepsionis (stadion 3,6 × 1,0 m) di sumbu pintu masuk (x −15), 2,5 m di depan dinding logo. */
+export const RECEPTION = { x: -15.0, z: 7.7 };
+/** Sofa ruang tunggu, membelakangi dinding barat. */
+export const LOBBY_SOFA = { x: -19.33, z: 10.6 };
 
 // ------------------------------------------------------------------ game room
 export const TABLE_TENNIS = { x: 15, z: -9.2 };
@@ -256,8 +258,6 @@ export const FLOOR_DECOR: [string, number, number, number, number, number][] = [
   ['Plant_02', -19.5, -4.5, 0.3, 0.6, 0.6], // corridor ends
   ['Plant_02', 19.5, -4.5, 2.4, 0.6, 0.6],
   ['Plant_10', -18.4, 4.55, 0.5, 0.5, 0.5], // kitchen
-  ['CoatRack_01', -18.3, 14.3, 0.3, 0.5, 0.5], // reception
-  ['Shelf_05', -19.6, 9.2, Math.PI / 2, 0.45, 1.4],
   ['Shelf_02', -9.57, -0.55, Math.PI / 2, 0.5, 2.2], // lounge library wall
   ['Plant_13', -9.3, 14.3, 0.6, 0.8, 0.8],
   ['Plant_12', -3.3, 14.35, 1.7, 0.8, 0.8],
@@ -287,12 +287,15 @@ export const FLOOR_DECOR: [string, number, number, number, number, number][] = [
   ['MiniFridge_01', 19.45, -12.6, -Math.PI / 2, 0.8, 0.8],
   // kitchen second fridge
   ['Fridge_02', -19.4, -1.9, Math.PI / 2, 0.85, 0.95],
-  // reception: sculpture, armchair, visitor chairs, mail cart
+  // reception (lobi rapi): patung, ruang tunggu (2 kursi kulit, meja kopi batu, meja samping), lidah mertua mengapit dinding logo
   ['Sculpture_Base_01', -12.4, 14.1, 0, 1.2, 1.2], // lobby corner by the window, clear of the lounge door (x -10, z 11.6–13.4)
-  ['Couch_01', -16.6, 11.0, -Math.PI / 2, 0.95, 1.2],
-  ['Chair_08', -15.2, 10.5, Math.PI, 0.75, 0.75],
-  ['Chair_08', -14.0, 10.5, Math.PI, 0.75, 0.75],
-  ['Cart_01', -17.0, 14.2, Math.PI / 2, 1.2, 0.6],
+  ['Lobby_Armchair_01', -16.75, 9.85, -Math.PI / 2 + 0.35, 0.85, 0.85],
+  ['Lobby_Armchair_01', -16.75, 11.35, -Math.PI / 2 - 0.35, 0.85, 0.85],
+  ['Lobby_CoffeeTable_01', -18.0, 10.6, 0, 0.95, 0.95],
+  ['Lobby_SideTable_01', -19.4, 12.25, 0, 0.5, 0.5],
+  ['Plant_06', -19.4, 8.95, 0.4, 0.45, 0.45],
+  ['Plant_03', -17.95, 5.62, 1.1, 0.45, 0.45],
+  ['Plant_06', -12.2, 5.62, 2.0, 0.45, 0.45],
   // workspace: supply rack, coffee point, standing desk, print station, corridor vacuum
   ['Shelf_03', 19.55, 5.8, -Math.PI / 2, 0.5, 1.2],
   ['Table_03', 9.5, 14.3, Math.PI, 1.9, 0.9],
@@ -317,7 +320,7 @@ export const PLAYER_SPAWN: Spot = { x: -15, z: 20.5, rot: Math.PI };
 /** Area jalan pemain: gedung + trotoar, jalan depan dan sekeliling (NPC/agen tetap di grid gedung). */
 export const PLAYER_BOUNDS = { minX: FLOOR.minX - 4, maxX: FLOOR.maxX + 4, minZ: FLOOR.minZ - 3, maxZ: FLOOR.maxZ + 8 };
 /** Resepsionis duduk di sudut meja L, menghadap pintu masuk. */
-export const RECEPTIONIST: Spot = { x: RECEPTION.x + 0.3, z: RECEPTION.z - 0.7, rot: 0 };
+export const RECEPTIONIST: Spot = { x: RECEPTION.x + 0.35, z: RECEPTION.z - 0.78, rot: 0 };
 
 /** Cubicle partitions as thin boxes. */
 function cubicleWalls(): Box[] {
@@ -354,7 +357,7 @@ export const OBSTACLES: Box[] = [
   box(-12.6, -1.9, 0.6, 0.5), // water cooler
   box(SOFA.x, SOFA.z, SOFA.w, SOFA.d),
   box(LOUNGE_TABLE.x, LOUNGE_TABLE.z, LOUNGE_TABLE.w, LOUNGE_TABLE.d),
-  box(RECEPTION.x + 0.04, RECEPTION.z + 0.25, 3.2, 0.9), box(RECEPTION.x - 1.15, RECEPTION.z - 0.6, 0.8, 1.0), // L-shaped desk; the receptionist sits in its corner
+  box(RECEPTION.x, RECEPTION.z, 3.72, 1.07), // konter stadion; resepsionis duduk di belakangnya
   box(LOBBY_SOFA.x, LOBBY_SOFA.z, 0.95, 2.3),
   box(19.4, -11.3, 0.85, 1.25), // vending machine
   box(11.9, -6.9, 1.9, 1.9), // snack table

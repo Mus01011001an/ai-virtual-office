@@ -1,4 +1,4 @@
-// Tekstur kanvas prosedural untuk kit CC0 (lantai kayu herringbone, karpet bermotif, ubin, bata, papan tanda).
+// Tekstur kanvas prosedural untuk kit CC0 (lantai kayu, batu poles, karpet bermotif, ubin, bata, papan tanda).
 import * as THREE from 'three';
 
 const cache = new Map<string, THREE.Texture>();
@@ -26,26 +26,37 @@ const shade = (hex: string, k: number) => {
 let seed = 1;
 const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
 
-/** Kayu herringbone (reception, meeting, koridor). Satu tekstur = satu ubin 2.5 m. */
-export function herringbone(base: string) {
-  return canvasTex(`hb${base}`, 512, 512, (g) => {
-    g.fillStyle = shade(base, -0.06); g.fillRect(0, 0, 512, 512);
-    seed = 7;
-    const L = 128, W = 32;
-    for (let row = -4; row < 20; row++) {
-      for (let col = -2; col < 10; col++) {
-        const x = col * L + row * W, y = row * W - col * 0;
-        for (const dir of [0, 1]) {
-          g.save();
-          g.translate(x + (dir ? W : 0), y + (dir ? 0 : 0));
-          g.rotate(dir ? Math.PI / 4 : -Math.PI / 4);
-          g.fillStyle = shade(base, (rnd() - 0.5) * 0.08);
-          g.fillRect(0, 0, L * 0.7, W * 0.7);
-          g.strokeStyle = shade(base, -0.14); g.lineWidth = 2; g.strokeRect(0, 0, L * 0.7, W * 0.7);
-          g.restore();
-        }
+/**
+ * Batu poles (marmer hangat) untuk lantai lobi & puncak meja: 1 tekstur = 2 × 2 ubin besar dengan urat halus dan nat
+ * tipis di tepi (mulus saat diulang per potongan lantai 2,5 m). `grout` false = tanpa nat (puncak meja, meja kopi).
+ */
+export function marble(base: string, grout = true) {
+  return canvasTex(`mb${base}${grout ? 'g' : ''}`, 1024, 1024, (g) => {
+    seed = 11;
+    for (let ty = 0; ty < 2; ty++) for (let tx = 0; tx < 2; tx++) {
+      const x0 = tx * 512, y0 = ty * 512;
+      g.fillStyle = shade(base, (rnd() - 0.5) * 0.025); g.fillRect(x0, y0, 512, 512);
+      g.save(); g.beginPath(); g.rect(x0, y0, 512, 512); g.clip();
+      // awan sangat halus (batu asli hampir rata warnanya)
+      g.globalAlpha = 0.18;
+      for (let i = 0; i < 10; i++) {
+        const cx = x0 + rnd() * 512, cy = y0 + rnd() * 512, rr = 120 + rnd() * 220;
+        const grd = g.createRadialGradient(cx, cy, 0, cx, cy, rr);
+        grd.addColorStop(0, shade(base, (rnd() - 0.5) * 0.06)); grd.addColorStop(1, shade(base, 0));
+        g.fillStyle = grd; g.fillRect(x0, y0, 512, 512);
       }
+      // urat tipis memanjang
+      for (let v = 0; v < 4; v++) {
+        let x = x0 + rnd() * 512, y = y0 - 20;
+        const dx = (rnd() - 0.5) * 2.4;
+        g.strokeStyle = shade(base, -0.12 - rnd() * 0.08); g.globalAlpha = 0.12 + rnd() * 0.2; g.lineWidth = 0.5 + rnd() * 1.1;
+        g.beginPath(); g.moveTo(x, y);
+        while (y < y0 + 532) { x += dx * 8 + (rnd() - 0.5) * 18; y += 12 + rnd() * 20; g.lineTo(x, y); }
+        g.stroke();
+      }
+      g.globalAlpha = 1; g.restore();
     }
+    if (grout) { g.fillStyle = shade(base, -0.14); for (const k of [0, 512]) { g.fillRect(k, 0, 1.5, 1024); g.fillRect(0, k, 1024, 1.5); } }
   });
 }
 

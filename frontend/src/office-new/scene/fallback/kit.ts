@@ -4,7 +4,7 @@
 // muka ke +z, tebal z 0..0.15; lantai/plafon 2.5×2.5 dari pojok (x,z) ke (+x,+z).
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { blobTexture, brick, carpet, chartTexture, detailTexture, herringbone, pbrTexture, screenTexture, signTexture, tiles } from './textures';
+import { blobTexture, brick, carpet, chartTexture, detailTexture, marble, pbrTexture, screenTexture, signTexture, tiles } from './textures';
 import { Q } from '../quality';
 import { kitModel } from './kitModels';
 
@@ -12,14 +12,15 @@ type V3 = [number, number, number];
 const mats = new Map<string, THREE.Material>();
 
 /** Material datar bersama (StaticBatch menggabung per material). */
-export function mat(color: string, o: { emissive?: string; ei?: number; rough?: number; metal?: number; map?: THREE.Texture; name?: string; glass?: boolean; smooth?: boolean } = {}) {
-  const key = `${color}|${o.emissive ?? ''}|${o.ei ?? ''}|${o.rough ?? ''}|${o.metal ?? ''}|${o.map?.uuid ?? ''}|${o.name ?? ''}|${o.glass ? 1 : 0}|${o.smooth ? 's' : ''}`;
+export function mat(color: string, o: { emissive?: string; ei?: number; rough?: number; metal?: number; map?: THREE.Texture; name?: string; glass?: boolean; smooth?: boolean; double?: boolean } = {}) {
+  const key = `${color}|${o.emissive ?? ''}|${o.ei ?? ''}|${o.rough ?? ''}|${o.metal ?? ''}|${o.map?.uuid ?? ''}|${o.name ?? ''}|${o.glass ? 1 : 0}|${o.smooth ? 's' : ''}|${o.double ? 'd' : ''}`;
   let m = mats.get(key);
   if (!m) {
     const s = new THREE.MeshStandardMaterial({ color, roughness: o.rough ?? 0.8, metalness: o.metal ?? 0, flatShading: !o.smooth, map: o.map ?? null });
     if (o.emissive) { s.emissive = new THREE.Color(o.emissive); s.emissiveIntensity = o.ei ?? 1; if (o.map) s.emissiveMap = o.map; }
     if (o.glass) { s.transparent = true; s.opacity = 0.22; s.roughness = 0.05; s.depthWrite = false; s.name = 'Glass'; s.flatShading = false; }
     if (o.name) s.name = o.name;
+    if (o.double) s.side = THREE.DoubleSide;
     mats.set(key, (m = s));
   }
   return m;
@@ -30,10 +31,56 @@ const CYL = new THREE.CylinderGeometry(0.5, 0.5, 1, 10);
 const CONE = new THREE.CylinderGeometry(0.18, 0.5, 1, 10, 1, true);
 const SPH = new THREE.IcosahedronGeometry(0.5, 1);
 
+/**
+ * Tepi miring (chamfer) untuk kotak prop: tepi menangkap cahaya → tidak terlihat seperti balok mainan. Hanya prop
+ * (bukan dinding/lantai: sambungan antar potongan akan tampak beralur) dan bukan Low (hemat segitiga di iPad).
+ */
+let BEVEL = false;
+const chamferCache = new Map<string, THREE.BufferGeometry>();
+/** Kotak w×h×d (berpusat) dengan tepi miring `c` m: 6 muka + 12 tepi + 8 sudut = 44 segitiga, normal per muka. */
+function chamferBox(w: number, h: number, d: number, c: number) {
+  const key = `${w.toFixed(3)}|${h.toFixed(3)}|${d.toFixed(3)}|${c.toFixed(4)}`;
+  const hit = chamferCache.get(key);
+  if (hit) return hit;
+  const hx = w / 2, hy = h / 2, hz = d / 2, ix = hx - c, iy = hy - c, iz = hz - c;
+  const pos: number[] = [];
+  const tri = (a: V3, b: V3, q: V3, n: V3) => {
+    const cx = (b[1] - a[1]) * (q[2] - a[2]) - (b[2] - a[2]) * (q[1] - a[1]);
+    const cy = (b[2] - a[2]) * (q[0] - a[0]) - (b[0] - a[0]) * (q[2] - a[2]);
+    const cz = (b[0] - a[0]) * (q[1] - a[1]) - (b[1] - a[1]) * (q[0] - a[0]);
+    if (cx * n[0] + cy * n[1] + cz * n[2] < 0) pos.push(...a, ...q, ...b); else pos.push(...a, ...b, ...q);
+  };
+  const quad = (a: V3, b: V3, q: V3, e: V3, n: V3) => { tri(a, b, q, n); tri(a, q, e, n); };
+  for (const s of [-1, 1]) {
+    quad([s * hx, -iy, -iz], [s * hx, iy, -iz], [s * hx, iy, iz], [s * hx, -iy, iz], [s, 0, 0]);
+    quad([-ix, s * hy, -iz], [ix, s * hy, -iz], [ix, s * hy, iz], [-ix, s * hy, iz], [0, s, 0]);
+    quad([-ix, -iy, s * hz], [ix, -iy, s * hz], [ix, iy, s * hz], [-ix, iy, s * hz], [0, 0, s]);
+  }
+  for (const a of [-1, 1]) for (const b of [-1, 1]) {
+    quad([-ix, a * hy, b * iz], [ix, a * hy, b * iz], [ix, a * iy, b * hz], [-ix, a * iy, b * hz], [0, a, b]);
+    quad([a * hx, -iy, b * iz], [a * hx, iy, b * iz], [a * ix, iy, b * hz], [a * ix, -iy, b * hz], [a, 0, b]);
+    quad([a * hx, b * iy, -iz], [a * hx, b * iy, iz], [a * ix, b * hy, iz], [a * ix, b * hy, -iz], [a, b, 0]);
+  }
+  for (const a of [-1, 1]) for (const b of [-1, 1]) for (const q of [-1, 1]) tri([a * hx, b * iy, q * iz], [a * ix, b * hy, q * iz], [a * ix, b * iy, q * hz], [a, b, q]);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((pos.length / 3) * 2), 2));
+  g.computeVertexNormals();
+  chamferCache.set(key, g);
+  return g;
+}
+const bevelable = (m: THREE.Material) => {
+  const s = m as THREE.MeshStandardMaterial;
+  return !s.transparent && s.name !== 'Screen' && (!s.map || !!s.userData.boxUV);
+};
+
 /** Kotak dari rentang [x0,x1] [y0,y1] [z0,z1]. */
 function r(g: THREE.Object3D, m: THREE.Material, x: [number, number], y: [number, number], z: [number, number]) {
-  const mesh = new THREE.Mesh(BOX, m);
-  mesh.scale.set(Math.max(x[1] - x[0], 0.001), Math.max(y[1] - y[0], 0.001), Math.max(z[1] - z[0], 0.001));
+  const w = Math.max(x[1] - x[0], 0.001), h = Math.max(y[1] - y[0], 0.001), d = Math.max(z[1] - z[0], 0.001);
+  const min = Math.min(w, h, d);
+  const c = BEVEL && min >= 0.012 && bevelable(m) ? Math.min(0.012, min * 0.22) : 0;
+  const mesh = new THREE.Mesh(c ? chamferBox(w, h, d, c) : BOX, m);
+  if (!c) mesh.scale.set(w, h, d);
   mesh.position.set((x[0] + x[1]) / 2, (y[0] + y[1]) / 2, (z[0] + z[1]) / 2);
   g.add(mesh);
   return mesh;
@@ -152,9 +199,28 @@ function floorMatRaw(name: string, pal: string) {
   if (/Panel/.test(name)) return mat('#ffffff', { map: tiles('#2c3a31', 4) });
   if (/Tiles/.test(name)) return mat('#ffffff', { map: tiles(pal === '01' ? '#cfcbc2' : '#8f8d87', 6), rough: 0.5 });
   if (/Carpet/.test(name)) return carpetMat(pal === '02' ? '#5e2620' : pal === '04' ? '#363942' : pal === '03' ? '#4b2a2a' : '#5a6070');
-  // kayu: 03/04 herringbone hangat, 01/02 papan terang
-  if (pal === '03' || pal === '04') return mat('#ffffff', { map: herringbone(pal === '03' ? '#b29878' : '#8a6040'), rough: 0.7 });
-  return woodPbr(pal === '02' ? '#b98c62' : '#e6c193');
+  if (/Stone/.test(name)) return stoneFloor(pal === '04' ? '#5b5650' : pal === '03' ? '#8e8274' : '#c9bfb2');
+  // kayu: papan PBR (dulu 03/04 herringbone kanvas → tampak seperti balok-balok/petak mainan)
+  return woodPbr(pal === '02' ? '#b98c62' : pal === '03' ? '#a87a52' : pal === '04' ? '#7a5638' : '#e6c193');
+}
+
+/** Lantai batu poles (lobi): ubin besar 1,25 m, urat halus, pantulan lingkungan (kekasaran rendah). */
+const stoneMats = new Map<string, THREE.MeshStandardMaterial>();
+function stoneFloor(tint: string) {
+  let m = stoneMats.get(tint);
+  if (!m) stoneMats.set(tint, (m = new THREE.MeshStandardMaterial({ color: '#ffffff', map: marble(tint), roughness: Q.pbr ? 0.16 : 0.4, metalness: 0 })));
+  return m;
+}
+/** Batu (puncak meja resepsionis, meja kopi): marmer tanpa nat, UV diproyeksikan per 1,2 m. */
+function stoneMat(tint: string) {
+  const key = `stone|${tint}`;
+  let m = stoneMats.get(key);
+  if (!m) {
+    m = new THREE.MeshStandardMaterial({ color: '#ffffff', map: marble(tint, false), roughness: 0.2, metalness: 0 });
+    m.userData.boxUV = 1.2;
+    stoneMats.set(key, m);
+  }
+  return m;
 }
 
 /** Lantai kayu papan dengan tekstur PBR CC0 (warna, normal, kekasaran) — jauh lebih nyata dari warna datar. */
@@ -351,8 +417,9 @@ function building(short: string, pal: string): THREE.Object3D | null {
   if (/^FeatureWall_Wood/.test(n)) {
     const g = new THREE.Group();
     // 5 mm di bawah puncak dinding: dulu puncaknya sebidang dengan list atas (crown) → garis berkedip di atas
-    r(g, mat('#3a2418'), [0, 2.5], [0, 2.995], [0, 0.03]);
-    for (let x = 0.04; x < 2.5; x += 0.125) r(g, pbr('wood', '#b07a48'), [x, x + 0.08], [0, 2.995], [0.03, 0.09]);
+    r(g, mat('#22150e'), [0, 2.5], [0, 2.995], [0, 0.03]);
+    // bilah walnut gelap: logo kuningan bercahaya di depannya terbaca jelas
+    for (let x = 0.04; x < 2.5; x += 0.125) r(g, pbr('wood', '#7e5235'), [x, x + 0.08], [0, 2.995], [0.03, 0.09]);
     return g;
   }
   if (/^FeatureWall/.test(n)) { const g = new THREE.Group(); r(g, mat(/Slate/.test(n) ? '#3e4247' : '#6d5b4a'), [0, 2.5], [0, 2.995], [0, 0.06]); return g; }
@@ -378,17 +445,26 @@ function building(short: string, pal: string): THREE.Object3D | null {
 const MODEL_METAL = () => mat('#26282c', { metal: 0.6, rough: 0.45, smooth: true });
 const MODEL_CHROME = () => mat('#c9ccd0', { metal: 0.9, rough: 0.25, smooth: true });
 const MODEL_PLASTIC = () => mat('#1d1e22', { rough: 0.55, smooth: true });
-function modelMaterials(m: Partial<Record<'Fabric' | 'Leather' | 'Wood' | 'Laminate', THREE.Material>>) {
-  return (name: string): THREE.Material => {
-    if (name === 'Fabric') return m.Fabric ?? pbr('fabric', '#3a3d45');
-    if (name === 'Leather') return m.Leather ?? pbr('leather', '#4a3022');
-    if (name === 'Wood') return m.Wood ?? pbr('wood', C.wood);
-    if (name === 'Laminate') return m.Laminate ?? mat('#d9d4cb', { smooth: true });
-    if (name === 'Chrome') return MODEL_CHROME();
-    if (name === 'Plastic') return MODEL_PLASTIC();
-    return MODEL_METAL();
-  };
+const GLOW = () => mat('#ffe9c8', { emissive: '#ffcf8f', ei: 2.4 });
+const BRASS = () => mat('#b48f58', { metal: 0.9, rough: 0.3, smooth: true });
+type ModelMat = 'Fabric' | 'Fabric2' | 'Leather' | 'Wood' | 'WoodDark' | 'Laminate' | 'Stone' | 'Metal' | 'Chrome' | 'Plastic' | 'Keys' | 'Brass'
+  | 'Steel' | 'Glow' | 'GlowBlue' | 'Screen' | 'Glass' | 'Leaf' | 'Leaf2' | 'Pot' | 'Soil' | 'Trunk';
+const MODEL_DEFAULT: Record<ModelMat, () => THREE.Material> = {
+  Fabric: () => pbr('fabric', '#3a3d45'), Fabric2: () => pbr('fabric', '#b9a58a'), Leather: () => pbr('leather', '#4a3022'),
+  Wood: () => pbr('wood', C.wood), WoodDark: () => pbr('wood', '#4a2e1e'), Laminate: () => mat('#d9d4cb', { smooth: true }),
+  Stone: () => stoneMat('#d6cec3'), Metal: MODEL_METAL, Chrome: MODEL_CHROME, Plastic: MODEL_PLASTIC,
+  Keys: () => mat('#2c2e33', { rough: 0.6, smooth: true }), Brass: BRASS, Steel: () => mat('#a9adb2', { metal: 0.75, rough: 0.32, smooth: true }),
+  Glow: GLOW, GlowBlue: () => mat('#9ec2ff', { emissive: '#4a7aff', ei: 1.8 }), Screen: () => SKIN_SCREEN(1),
+  Glass: () => mat(C.glassTint, { glass: true }), Leaf: () => mat('#2c5a2c', { rough: 0.45, smooth: true, double: true }),
+  Leaf2: () => mat('#5f7d33', { rough: 0.5, smooth: true, double: true }), Pot: () => mat('#cfc9c0', { rough: 0.7, smooth: true }),
+  Soil: () => mat('#2b2018', { rough: 1 }), Trunk: () => mat('#5a4030', { rough: 0.9, smooth: true }),
+};
+/** Bahan untuk model Blender per nama material; `m` menimpa bawaan (warna kain, kayu, layar, pot, …). */
+function modelMaterials(m: Partial<Record<ModelMat, THREE.Material>>) {
+  return (name: string): THREE.Material => m[name as ModelMat] ?? (MODEL_DEFAULT[name as ModelMat] ?? MODEL_METAL)();
 }
+/** Model Blender dengan bahan bawaan + timpaan; null bila GLB belum termuat. */
+const kit = (name: string, m: Partial<Record<ModelMat, THREE.Material>> = {}) => kitModel(name, modelMaterials(m));
 
 function chair(kind: number) {
   const g = new THREE.Group();
@@ -484,6 +560,13 @@ function desk(n: number) {
 }
 
 function monitor(g: THREE.Object3D, x: number, k: number, w = 0.55, curved = false) {
+  const m = kit('monitor', { Screen: SKIN_SCREEN(k) });
+  if (m) {
+    m.position.x = x;
+    if (w !== 0.55) m.scale.set(w / 0.556, curved ? 1.15 : 1, 1);
+    g.add(m);
+    return;
+  }
   const body = mat('#1c1d21');
   b(g, body, 0.18, 0.015, 0.14, x, 0);
   b(g, body, 0.04, 0.16, 0.04, x, 0.01, -0.02);
@@ -492,9 +575,12 @@ function monitor(g: THREE.Object3D, x: number, k: number, w = 0.55, curved = fal
   r(g, SKIN_SCREEN(k), [x - w / 2 + 0.015, x + w / 2 - 0.015], [0.135, 0.455], [0.0, 0.004]);
 }
 
+const PILLOW = ['#c9b48f', '#d8cdb4', '#b98a5a', '#d8cdb4', '#9aa3ad', '#3d4f47'];
 function couch(n: number) {
   const g = new THREE.Group();
   const col = ['#5e6672', '#6b4a35', '#2f5a5c', '#7a2f2a', '#3d3f45', '#8a8f96'][(n - 1) % 6];
+  const sofa = kit('sofa_3', { Fabric: pbr('fabric', col), Fabric2: pbr('fabric', PILLOW[(n - 1) % 6]) });
+  if (sofa) { sofa.scale.x = (n === 6 ? 2.4 : 2.0) / 2.25; return sofa; }
   const m = pbr('fabric', col);
   const w = n === 6 ? 2.4 : 2.0;
   b(g, mat('#1b1c20'), w - 0.2, 0.1, 0.75, 0, 0);
@@ -508,7 +594,16 @@ function couch(n: number) {
   return g;
 }
 
+const POT = ['#d8d2c8', '#34363b', '#a65a3a', '#cfc6b6'];
+/** Tanaman Blender: 12–14 pohon tinggi (fiddle leaf), 03/06 lidah mertua, 09/11 kecil (di rak), lainnya rimbun. */
 function plant(n: number) {
+  const kind = n >= 12 ? 'plant_tall' : n === 3 || n === 6 ? 'plant_snake' : n === 9 || n === 11 ? 'plant_desk' : 'plant_bush';
+  const model = kit(kind, { Pot: mat(POT[n % 4], { rough: 0.7, smooth: true }) });
+  if (model) {
+    if (kind === 'plant_desk') model.scale.setScalar(2.0);
+    else if (kind === 'plant_tall' && n === 13) model.scale.setScalar(1.08);
+    return model;
+  }
   const g = new THREE.Group();
   const big = n % 3 === 0 || n > 10;
   const pot = mat(['#e8e4da', '#3a3d45', '#a65a3a', '#d8cdb4'][n % 4]);
@@ -581,6 +676,9 @@ function lamp(n: number) {
   const glow = mat('#fff2d8', { emissive: '#ffd8a0', ei: 2.2 });
   if (n === 8) { b(g, mat('#2b2b2f'), 0.1, 0.25, 0.08, 0, -0.12); ball(g, glow, [0.12, 0.12, 0.12], [0, 0.05, 0.08]); return g; }
   if (n === 6 || n === 7) { cyl(g, mat('#3a3330'), 0.2, 0.06, 0, -0.06); cyl(g, mat('#fff2d8', { emissive: '#ffd8a0', ei: 1.1 }), 0.15, 0.01, 0, -0.07); return g; }
+  // lampu gantung kubah (Blender), kap hitam / putih (04) / kuningan (05)
+  const dome = kit('pendant_dome', { Metal: n === 4 ? mat('#e8e4da', { rough: 0.5, smooth: true }) : n === 5 ? BRASS() : MODEL_METAL() });
+  if (dome) return dome;
   // lampu gantung kerucut (ikon kantor referensi)
   const shade = mat(n === 4 ? '#e8e4da' : n === 5 ? '#c9a26e' : '#2b2d31', { rough: 0.6 });
   const drop = n === 2 ? 0.9 : 0.7;
@@ -613,8 +711,8 @@ function small(n: string): THREE.Object3D | null {
   if (hit(/^Note_\d/)) { r(g, mat(['#f2d74e', '#f2a65a', '#f28fb0', '#8fd0f0', '#a8e07a'][Number(n.slice(-1)) % 5], { rough: 0.9 }), [-0.038, 0.038], [-0.038, 0.038], [0, 0.003]); return g; }
   if (hit(/^(Papers?|Paper_Pile|Paper_0|Note|NotePad|Folder|Clipboard|Book_Magazine|Calender|Certificate)/)) { b(g, mat(hit(/Folder_Manila/) ? '#e2c27a' : hit(/Note_/) ? '#f2e36b' : '#f2efe8'), 0.22, hit(/Pile/) ? 0.08 : 0.012, 0.3); return g; }
   if (hit(/^Book_Group/)) { const cols = ['#2f5fa8', '#b8352b', '#e0b04a', '#2f7a46', '#5b3a24']; for (let i = 0; i < 5; i++) b(g, mat(cols[i]), 0.045, 0.24, 0.17, -0.1 + i * 0.05, 0); return g; }
-  if (hit(/^Computer_Keyboard/)) { b(g, mat('#202126'), 0.44, 0.02, 0.14); return g; }
-  if (hit(/^Computer_Mouse$|^Computer_Mouse_/)) { b(g, mat('#202126'), 0.06, 0.025, 0.1); return g; }
+  if (hit(/^Computer_Keyboard/)) { const k = kit('keyboard'); if (k) return k; b(g, mat('#202126'), 0.44, 0.02, 0.14); return g; }
+  if (hit(/^Computer_Mouse$|^Computer_Mouse_/)) { const m = kit('mouse'); if (m) return m; b(g, mat('#202126'), 0.06, 0.025, 0.1); return g; }
   if (hit(/^Computer_Mousepad/)) { b(g, mat('#2e3440'), 0.24, 0.004, 0.2); return g; }
   if (hit(/^(Phone_Desk|Phone_Conference|Phone_Rotary|Phone_Portable|Radio|Speaker|Modem|HDD|Calculator|FaxMachine|Typewriter|Stapler|HolePunch|Card_|Keypad|Console|Controller|VCR|Dvd|Cd_|Projector|Webcam|Headphones|Headset|Cellphone|Pencil_Sharp|JellyStapler|Lunchbox|Toaster|Kettle|Blender|Microwave|CoffeeMachine|Printer_Mini|Printer_3D|Fan_Desk|Fan_USB|Globe|Trophy|Figure|DeskToy|PuzzleCube|Sculpture|Spaceship|Flash|SD_|Floppy|Eraser|Ruler|Pen|Pencil|Scissors|Cellotape|Mints|Pills|Inhaler|ID_Card|Napkins|Soap|Snack|Sandwich|Toast|Fruit|Jellybeans|Dishes|Knife|Chopping|Pan_|Pot_|Bucket|SprayBottle|Alcohol|Party_Hat|Xmas_Present|Microphone_0[23]|Air_Horn|Prank|HDD_Dock|NetCable|Cord|Socket|Elevator_Button|Fire_Detector|FireAlarm|Security_Camera|Sprinkler|Toilet_Paper|PaperTowel|HandDryer|Folder_Holder|FolderTray|PaperTray|Cup_Pens|PencilCup|NamePlate|Desklamp|DeskLamp|LaptopStand|GraphicsTablet|Wep_|Briefcase|Container|Propane|PowerBox|Powerbox|Wall_Electronics|Guillotine|PaperRoll|CardRoller|Photo_0|Child_Art|Inbox)/)) {
     const SIZE: [RegExp, V3, string][] = [
@@ -638,6 +736,16 @@ function furniture(n: string): THREE.Object3D | null {
   const num = Number((n.match(/_(\d\d)/) ?? [0, '1'])[1]);
   // Alas patung lobi (1,2 × 1,2 m, tinggi 0,31) + patung abstrak perunggu di atasnya (dulu kotak ungu 10 cm).
   if (/^Sculpture_Base/.test(n)) { b(g, mat('#2f3238', { rough: 0.6 }), 1.2, 0.05, 1.2); b(g, mat('#d9d5cc', { rough: 0.45 }), 1.1, 0.26, 1.1, 0, 0.05); return g; }
+  if (/^Sculpture_\d/.test(n)) { const sc = kit('sculpture_rings'); if (sc) { sc.scale.setScalar(1.25); return sc; } }
+  // lobi baru (2026-11-28): konter resepsionis stadion, sofa & kursi lounge, meja kopi/samping, lampu cincin, karpet
+  if (/^Reception_Desk/.test(n)) { const d = kit('reception_desk', { Stone: stoneMat('#cfc6ba') }); if (d) return d; return receptionDesk(); }
+  if (/^Lobby_Sofa/.test(n)) { const s2 = kit('sofa_3', { Fabric: pbr('fabric', '#3f5249'), Fabric2: pbr('fabric', '#c9a978') }); if (s2) return s2; return couch(3); }
+  if (/^Lobby_Armchair/.test(n)) { const a = kit('armchair', { Fabric: pbr('leather', '#8a5232') }); if (a) return a; return chair(8); }
+  if (/^Lobby_CoffeeTable/.test(n)) { const t = kit('coffee_round', { Stone: stoneMat('#d9d1c6') }); if (t) return t; }
+  if (/^Lobby_SideTable/.test(n)) { const t = kit('side_table', { Stone: stoneMat('#d9d1c6') }); if (t) return t; }
+  if (/^Lobby_Pendant/.test(n)) { const l = kit('pendant_ring'); if (l) return l; return lamp(4); }
+  if (/^Lobby_Rug/.test(n)) { r(g, pbr('fabric', '#8a8074'), [-1.7, 1.7], [0, 0.014], [-1.4, 1.4]); r(g, pbr('fabric', '#5e554c'), [-1.7, 1.7], [0.0005, 0.0145], [-1.4, -1.3]); r(g, pbr('fabric', '#5e554c'), [-1.7, 1.7], [0.0005, 0.0145], [1.3, 1.4]); return g; }
+  if (/^Lobby_Mat/.test(n)) { r(g, mat('#2a2826', { rough: 1 }), [-1.2, 1.2], [0, 0.014], [-0.7, 0.7]); return g; }
   if (/^Sculpture_\d/.test(n)) {
     const br = mat('#b07a48', { metal: 0.7, rough: 0.35 });
     cyl(g, mat('#2b2d31'), 0.18, 0.06);
@@ -670,7 +778,7 @@ function furniture(n: string): THREE.Object3D | null {
   if (/^Table_0/.test(n)) { const ts = kitModel('table_small', modelMaterials({ Wood: pbr('wood', C.woodLight) })); if (ts) return ts; }
   if (/^Table_0/.test(n)) { b(g, pbr('wood', C.woodLight), 1.2, 0.04, 0.75, 0, 0.72); for (const [x, z] of [[-0.55, -0.32], [0.55, -0.32], [-0.55, 0.32], [0.55, 0.32]]) b(g, mat('#2b2d31'), 0.04, 0.72, 0.04, x, 0, z); return g; }
   if (/^CoffeeTable/.test(n)) { const ct = kitModel('table_coffee', modelMaterials({ Wood: pbr('wood', num === 2 ? '#6a4128' : C.wood) })); if (ct) return ct; }
-  if (/^CoffeeTable/.test(n)) { b(g, pbr('wood', num === 2 ? '#6a4128' : C.wood), 1.1, 0.05, 0.6, 0, 0.38); b(g, mat('#1b1c20'), 1.0, 0.38, 0.5, 0, 0).scale.y = 0.38; return g; }
+  if (/^CoffeeTable/.test(n)) { b(g, pbr('wood', num === 2 ? '#6a4128' : C.wood), 1.1, 0.05, 0.6, 0, 0.38); b(g, mat('#1b1c20'), 1.0, 0.38, 0.5, 0, 0); return g; }
   if (/^Couch/.test(n)) return couch(num);
   if (/^Benchseat|^Outdoor_Seat/.test(n)) { b(g, mat(C.wood), 1.6, 0.06, 0.45, 0, 0.42); b(g, mat('#2b2d31'), 0.06, 0.42, 0.4, -0.7); b(g, mat('#2b2d31'), 0.06, 0.42, 0.4, 0.7); return g; }
   if (/^Computer_Monitor_Double/.test(n)) { monitor(g, -0.3, 1); monitor(g, 0.3, 2); return g; }
@@ -679,17 +787,39 @@ function furniture(n: string): THREE.Object3D | null {
   if (/^Monitor_Crt/.test(n)) { b(g, mat('#d8d2c4'), 0.42, 0.38, 0.42, 0, 0); plane(g, SKIN_SCREEN(2), 0.32, 0.26, 0, 0.2, 0.21); return g; }
   if (/^Computer_Monitor/.test(n)) { monitor(g, 0, num % 4); return g; }
   if (/^Computer_Setup/.test(n)) { monitor(g, 0, num); b(g, mat('#202126'), 0.44, 0.02, 0.14, 0, 0, 0.25); return g; }
+  if (/^Computer_Tower/.test(n)) { const t = kit('pc_tower'); if (t) return t; }
   if (/^Computer_Tower/.test(n)) { b(g, mat('#1c1d21'), 0.2, 0.45, 0.45); plane(g, mat('#4a7aff', { emissive: '#4a7aff', ei: 1.5 }), 0.02, 0.3, 0.05, 0.25, 0.226); return g; }
   if (/^Laptop/.test(n)) { b(g, mat('#b9bcc2', { metal: 0.4 }), 0.34, 0.015, 0.24); const lid = new THREE.Group(); lid.position.set(0, 0.015, -0.12); lid.rotation.x = -0.25; r(lid, mat('#b9bcc2', { metal: 0.4 }), [-0.17, 0.17], [0, 0.23], [-0.012, 0]); r(lid, SKIN_SCREEN(num), [-0.155, 0.155], [0.015, 0.215], [0, 0.003]); g.add(lid); return g; }
   if (/^TV_Wall|^Rolling_TV/.test(n)) { g.add(screenBoard(1.2, 0.7, 1, /Rolling/.test(n) ? 1.0 : 0)); if (/Rolling/.test(n)) b(g, mat('#2b2d31'), 0.06, 1.0, 0.06); return g; }
   if (/^ArcadeMachine/.test(n)) { b(g, mat('#3a1f6a'), 0.7, 1.8, 0.75); const s = plane(g, SKIN_SCREEN(3), 0.5, 0.4, 0, 1.35, 0.376); s.rotation.x = -0.2; b(g, mat('#2b2d31'), 0.6, 0.06, 0.25, 0, 0.95, 0.45); return g; }
   if (/^Jukebox/.test(n)) { b(g, mat('#8a2b2b'), 0.8, 1.5, 0.6); ball(g, mat('#ffcf7a', { emissive: '#ffb347', ei: 1.2 }), [0.7, 0.5, 0.3], [0, 1.5, 0.05]); return g; }
-  if (/^VendingMachine/.test(n)) { b(g, mat('#b8352b'), 0.9, 1.9, 0.8); plane(g, mat('#cfe3ff', { emissive: '#9fc3ff', ei: 0.6 }), 0.6, 1.3, -0.08, 1.1, 0.401); return g; }
+  if (/^VendingMachine/.test(n)) {
+    // mesin minuman: rangka arang, etalase kaca berlampu berisi rak & produk, kolom tombol, slot ambil, strip merek
+    const body = mat('#2a2d33', { rough: 0.45 }), steel = mat('#b9bcc2', { metal: 0.6, rough: 0.35 });
+    r(g, body, [-0.45, -0.42], [0, 1.9], [-0.4, 0.4]); r(g, body, [0.42, 0.45], [0, 1.9], [-0.4, 0.4]);
+    r(g, body, [-0.42, 0.42], [1.75, 1.9], [-0.4, 0.4]); r(g, body, [-0.42, 0.42], [0, 0.3], [-0.4, 0.4]);
+    r(g, body, [-0.42, 0.42], [0.3, 1.75], [-0.4, -0.37]); r(g, body, [0.18, 0.42], [0.3, 1.75], [-0.37, 0.4]);
+    r(g, mat('#eef3f8', { emissive: '#dbe8f5', ei: 0.5 }), [-0.42, 0.18], [0.3, 1.75], [-0.37, -0.355]);
+    const goods = ['#b8352b', '#2f5fa8', '#e0b04a', '#3d7a4f', '#e8e4da', '#7a3a6a'];
+    for (let i = 0; i < 5; i++) {
+      const y = 0.42 + i * 0.27;
+      r(g, steel, [-0.42, 0.18], [y - 0.012, y], [-0.355, 0.36]);
+      for (let j = 0; j < 5; j++) b(g, mat(goods[(i * 2 + j) % goods.length], { rough: 0.4 }), 0.075, 0.17, 0.09, -0.36 + j * 0.11, y, 0.2);
+    }
+    r(g, mat(C.glassTint, { glass: true }), [-0.42, 0.18], [0.3, 1.75], [0.37, 0.38]);
+    r(g, mat('#14161a'), [-0.36, 0.1], [0.08, 0.22], [0.4, 0.41]);
+    r(g, mat('#3a3d45', { rough: 0.5 }), [0.22, 0.38], [0.95, 1.35], [0.4, 0.412]);
+    r(g, mat('#9fd0ff', { emissive: '#6fb0ff', ei: 0.9 }), [0.24, 0.36], [1.25, 1.32], [0.412, 0.416]);
+    r(g, mat('#c23a2f', { emissive: '#c23a2f', ei: 0.5 }), [-0.4, 0.4], [1.78, 1.87], [0.4, 0.408]);
+    return g;
+  }
+  if (/^WaterCooler/.test(n)) { const w = kit('water_cooler'); if (w) return w; }
   if (/^WaterCooler/.test(n)) { b(g, mat('#e8e4da'), 0.32, 1.0, 0.32); cyl(g, mat('#8fc3ef', { glass: true }), 0.14, 0.42, 0, 1.0); return g; }
   if (/^Fishtank/.test(n)) { b(g, mat('#2b2d31'), 1.2, 0.8, 0.45); b(g, mat('#4aa3d8', { emissive: '#1e6fa0', ei: 0.6 }), 1.15, 0.5, 0.4, 0, 0.8); return g; }
   if (/^Kitchen_CounterSink/.test(n)) { b(g, mat('#e8e4da'), 1.0, 0.86, 0.62); b(g, mat('#3a3d45'), 1.02, 0.04, 0.64, 0, 0.86); b(g, mat('#c9ccd0', { metal: 0.6 }), 0.5, 0.02, 0.35, 0, 0.9); cyl(g, mat('#c9ccd0', { metal: 0.6 }), 0.015, 0.3, 0, 0.9, -0.22); return g; }
   if (/^Kitchen_Counter/.test(n)) { b(g, mat('#e8e4da'), 1.0, 0.86, 0.62); b(g, mat('#3a3d45'), 1.02, 0.04, 0.64, 0, 0.86); b(g, mat('#2b2d31'), 0.02, 0.02, 0.2, 0, 0.7, 0.32); return g; }
   if (/^Kitchen_Cabinet/.test(n)) { b(g, mat('#e8e4da'), 1.0, 0.7, 0.35); return g; }
+  if (/^Fridge/.test(n)) { const f = kit('fridge'); if (f) return f; }
   if (/^Fridge/.test(n)) { b(g, mat('#1e1f23'), 0.85, 1.9, 0.72); b(g, mat('#c9ccd0', { metal: 0.6 }), 0.03, 0.5, 0.04, -0.04, 0.9, 0.37); b(g, mat('#c9ccd0', { metal: 0.6 }), 0.03, 0.5, 0.04, 0.04, 0.9, 0.37); return g; }
   if (/^MiniFridge/.test(n)) { b(g, mat('#2b2d31'), 0.5, 0.85, 0.5); return g; }
   if (/^Server_Cabinet/.test(n)) {
@@ -704,10 +834,12 @@ function furniture(n: string): THREE.Object3D | null {
   if (/^(Trashbin|Bin_|Bin$|Bin_Rubbish)/.test(n)) { cyl(g, mat('#3a3d45'), 0.16, 0.38); return g; }
   if (/^Fire_Extinguisher/.test(n)) { cyl(g, mat('#c3322b', { rough: 0.4 }), 0.07, 0.5); return g; }
   if (/^CardboardBox|^Pallet|^Box_/.test(n)) { if (/Pallet/.test(n)) b(g, mat('#a8875e'), 1.2, 0.14, 1.0); else if (/Stack/.test(n)) { b(g, mat('#b98d5a'), 0.5, 0.35, 0.4); b(g, mat('#a9804f'), 0.45, 0.3, 0.38, 0.02, 0.35); } else b(g, mat('#b98d5a'), 0.45, 0.32, 0.38); return g; }
+  if (/^Cabinets/.test(n)) { const cb = kit(num === 3 ? 'cabinet_low' : 'cabinet_tall', { Laminate: num === 2 ? pbr('wood', C.wood) : mat('#b9bcc2', { rough: 0.5, smooth: true }) }); if (cb) return cb; }
   if (/^Cabinets/.test(n)) { b(g, mat(num === 2 ? C.wood : '#b9bcc2'), 0.45, num === 3 ? 0.75 : 1.3, 0.6); for (let i = 0; i < 3; i++) b(g, mat('#2b2d31'), 0.12, 0.02, 0.02, 0, 0.3 + i * 0.38, 0.31); return g; }
   if (/^Shelf_Wall/.test(n)) { b(g, mat(C.wood), 0.9, 0.03, 0.22); return g; }
   if (/^Shelf/.test(n)) return shelf(num);
   if (/^CoatRack/.test(n)) { cyl(g, mat(C.woodDark), 0.025, 1.8); cyl(g, mat(C.woodDark), 0.22, 0.03); return g; }
+  if (/^Plant_Flowers|^Flowers/.test(n)) { const pd = kit('plant_desk', { Pot: mat('#e8e4da', { rough: 0.4, smooth: true }) }); if (pd) { pd.scale.setScalar(1.5); return pd; } }
   if (/^Plant_Flowers|^Flowers/.test(n)) { cyl(g, mat('#e8e4da'), 0.06, 0.18); for (let i = 0; i < 5; i++) ball(g, mat(['#d9473a', '#f2c94c', '#e86a92'][i % 3]), [0.06, 0.06, 0.06], [Math.sin(i) * 0.05, 0.3 + (i % 2) * 0.05, Math.cos(i) * 0.05]); return g; }
   if (/^Plant|^Tree_Round|^Small_Hedge|^Neon_Cactus/.test(n)) { if (/Tree/.test(n)) { cyl(g, mat('#5a3d28'), 0.1, 1.2); ball(g, mat('#3f7a3a'), [1.6, 1.4, 1.6], [0, 1.9, 0]); return g; } if (/Hedge/.test(n)) { b(g, mat('#2f6a34'), 1.2, 0.6, 0.5); return g; } return plant(num); }
   if (/^Rug/.test(n)) { const cols = ['#7a2f2a', '#2f4f7a', '#b5652e', '#3d5a3f', '#8a2b2b']; const w = [3, 2.4, 2, 3.2, 2.6][(num - 1) % 5], d = [2, 1.6, 1.4, 2.2, 1.8][(num - 1) % 5]; b(g, mat(cols[(num - 1) % 5], { rough: 1 }), w, 0.012, d); b(g, mat('#e8d9b8', { rough: 1 }), w - 0.2, 0.017, d - 0.2).visible = num === 1; return g; }
@@ -797,10 +929,10 @@ const plainMats = new Map<string, THREE.MeshStandardMaterial>();
 function plainMaterial(m: THREE.MeshStandardMaterial) {
   const rough = m.roughness < 0.45 ? 0.35 : m.roughness < 0.75 ? 0.6 : 0.9;
   const metal = m.metalness < 0.25 ? 0 : m.metalness < 0.75 ? 0.5 : 0.9;
-  const key = `${rough}|${metal}|${m.flatShading ? 'f' : 's'}`;
+  const key = `${rough}|${metal}|${m.flatShading ? 'f' : 's'}|${m.side}`;
   let p = plainMats.get(key);
   if (!p) {
-    p = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: rough, metalness: metal, flatShading: m.flatShading });
+    p = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: rough, metalness: metal, flatShading: m.flatShading, side: m.side });
     plainMats.set(key, p);
   }
   return p;
@@ -862,9 +994,11 @@ export function fallbackProp(full: string, palette: string): THREE.Object3D {
   let o = cache.get(key);
   if (o) return o;
   const short = full.replace(/^SM_(Prop|Bld)_/, '');
+  BEVEL = Q.pbr && !full.startsWith('SM_Bld_');
   o = (full.startsWith('SM_Bld_') ? building(short, pal) : null)
     ?? (full === 'SM_Bld_Glass_Door_01' ? doorLeaf(short) : null)
     ?? signs(short) ?? furniture(short) ?? small(short) ?? new THREE.Group();
+  BEVEL = false;
   if (!full.startsWith('SM_Bld_')) addContactShadow(o);
   o = mergeByMaterial(o);
   o.name = full;

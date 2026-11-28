@@ -1,8 +1,8 @@
 import { Suspense, useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Environment } from '@react-three/drei';
-import { EffectComposer, Bloom, Vignette, ToneMapping, HueSaturation, BrightnessContrast, DepthOfField } from '@react-three/postprocessing';
-import { ToneMappingMode, type DepthOfFieldEffect } from 'postprocessing';
+import { EffectComposer, Bloom, Vignette, ToneMapping, HueSaturation, BrightnessContrast } from '@react-three/postprocessing';
+import { ToneMappingMode } from 'postprocessing';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { useOffice } from '../store/useOffice';
@@ -20,7 +20,6 @@ import { Roof } from './Roof';
 import { OCC, patchScene } from './occlusion';
 import { player } from '../world/runtime';
 import { LIGHT_POOL, Q } from './quality';
-import { FOCUS } from './lens';
 import { perf, usePerf } from './perf';
 import { skyFor } from './weather';
 import { Rain } from './Rain';
@@ -132,20 +131,11 @@ function SfxListener() {
   return null;
 }
 
-/** Lensa: fokus otomatis ke titik dari CameraDirector (pemain / ±3 m di depan / sasaran shot). */
-function LensFocus({ dof }: { dof: React.RefObject<DepthOfFieldEffect | null> }) {
-  useFrame(() => { dof.current?.target?.copy(FOCUS); });
-  return null;
-}
-
 export function OfficeScene() {
   const select = useOffice((s) => s.select);
   const mode = useOffice((s) => s.mode);
   const inside = useOffice((s) => insideLight(s.mode, s.shot));
   const roofOn = useOffice((s) => insideView(s.mode, s.shot));
-  // real lens (depth of field) only where it reads as a camera: Walk in and recorded shots, Medium/High graphics
-  const lensOn = useOffice((s) => Q.dof && (s.mode === 'life' || !!s.shot));
-  const dof = useRef<DepthOfFieldEffect | null>(null);
   const perfOn = usePerf().on;
   const weather = useOffice((s) => s.weather);
   const sky = useMemo(() => skyFor(weather), [weather]);
@@ -214,11 +204,9 @@ export function OfficeScene() {
       {weather.rain && <Rain />}
       <SfxListener />
       {perfOn && <PerfMeter />}
-      {lensOn && <LensFocus dof={dof} />}
-      {/* key: menambah/melepas DepthOfField di composer yang sama membuat render gagal (GL INVALID_OPERATION) → bangun ulang */}
-      <EffectComposer key={lensOn ? 'lens' : 'flat'} multisampling={Q.msaa}>
+      {/* tanpa depth of field: semua tajam (blur lensa membuat gambar kabur & terasa seperti miniatur/mainan) */}
+      <EffectComposer multisampling={Q.msaa}>
         {/* AO: N8AO crash di three r187, SSAO berbintik → diganti bayangan kontak (fallback/kit.ts, CharacterShadows) */}
-        {lensOn ? <DepthOfField ref={dof} target={FOCUS} worldFocusRange={3.2} bokehScale={2} resolutionScale={0.5} /> : <></>}
         {Q.bloom ? <Bloom intensity={0.35} luminanceThreshold={0.82} luminanceSmoothing={0.2} mipmapBlur /> : <></>}
         {/* inside: a muted, contrasty grade (the reference video), outside the brighter overview look */}
         <HueSaturation saturation={inside ? -0.14 : -0.04} />
