@@ -88,3 +88,6 @@ musyan-workspace-reference/
 
 # Office Baru: model Synty hasil konversi lokal (aset berbayar, jangan di-commit)
 frontend/public/office-new/models/
+
+# Python (skrip Blender tools/office-new/blender)
+__pycache__/
