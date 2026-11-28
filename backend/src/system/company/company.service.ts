@@ -6,6 +6,7 @@ import { DEFAULT_OFFICE_ROLES } from 'src/system/role-permission/permission.defi
 import { auth } from 'src/lib/auth';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
+import { withExperience } from './office-experience';
 
 const isValidTimezone = (tz: string) => {
   try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); return true } catch { return false }
@@ -52,7 +53,7 @@ export class CompanyService {
     }
 
     const company = await this.prisma.$transaction(async (tx) => {
-      const c = await tx.company.create({ data: { name: dto.name.trim(), createdById: userId } });
+      const c = await tx.company.create({ data: { name: dto.name.trim(), createdById: userId, modules: withExperience([], dto.experience ?? 'classic') } });
       await tx.officeProfile.create({ data: { companyId: c.id, template: dto.template ?? 'EMPTY', timezone } });
       let ownerRoleId = '';
       for (const r of DEFAULT_OFFICE_ROLES) {
@@ -113,9 +114,13 @@ export class CompanyService {
   async update(companyId: string, dto: UpdateCompanyDto, userId: string) {
     await this.findOne(companyId);
     if (dto.timezone && !isValidTimezone(dto.timezone)) throw new BadRequestException('Timezone tidak valid');
-    const { name, ...profile } = dto;
+    const { name, experience, ...profile } = dto;
     await this.prisma.$transaction(async (tx) => {
       if (name !== undefined) await tx.company.update({ where: { id: companyId }, data: { name: name.trim() } });
+      if (experience !== undefined) {
+        const cur = await tx.company.findUnique({ where: { id: companyId }, select: { modules: true } });
+        await tx.company.update({ where: { id: companyId }, data: { modules: withExperience(cur?.modules, experience) } });
+      }
       if (Object.keys(profile).length) {
         await tx.officeProfile.upsert({ where: { companyId }, update: profile, create: { companyId, ...profile } });
       }

@@ -4,7 +4,7 @@ import { useOffice } from '../state/store'
 import { runtime } from '../state/runtime'
 import { isTyping } from '../camera/input'
 import { toggleGatherAll, toggleSummon } from '../state/gather'
-import { enterOffice, signOut } from '../state/remote'
+import { enterOffice, openOfficeNew, signOut } from '../state/remote'
 import { AuthCard } from './Auth'
 import { speechRecognizer } from '../audio/speech-recognition'
 import { isTouchOrIPad } from '../camera/CameraRig'
@@ -291,33 +291,40 @@ export function StartScreen() {
             <div className="mt-7 w-full max-w-2xl text-left">
               {err && <div className="mb-3 rounded-2xl bg-rose-50 px-3 py-2 text-[12.5px] text-rose-600">{err}</div>}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {st.offices.map((o) => (
-                  <button
-                    key={o.id}
-                    disabled={!!busy}
-                    onClick={async () => {
-                      runtime.player.x = 0
-                      setBusy(o.id); setErr('')
-                      try { await enterOffice(o.id) } catch (e) { setErr((e as Error).message) }
-                      setBusy(null)
-                    }}
-                    className="group flex items-center gap-4 rounded-[24px] bg-white p-4 text-left shadow-[0_6px_0_#b9d3ee] transition-transform hover:-translate-y-0.5 active:translate-y-[3px] active:shadow-[0_3px_0_#b9d3ee] disabled:opacity-60"
-                  >
-                    <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-sky-100 text-[26px]">🏢</span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-display text-[18px] font-semibold text-slate-900">{o.name}</span>
-                      <span className="block text-[12.5px] text-slate-500">{o.employeeCount ?? 0} AI · {o.timezone}</span>
-                    </span>
-                    <span className="rounded-xl bg-[#22c55e] px-3.5 py-2 font-display text-[14px] font-semibold text-white shadow-[0_4px_0_#15803d]">
-                      {busy === o.id ? '…' : 'Masuk'}
-                    </span>
-                  </button>
-                ))}
+                {st.offices.map((o) => {
+                  const isNew = o.experience === 'new'
+                  // Dua pintu masuk: tombol hijau = jenis kantor yang dipilih saat dibuat, tombol putih = jenis lainnya.
+                  const open = async (exp: 'classic' | 'new') => {
+                    runtime.player.x = 0
+                    setBusy(o.id); setErr('')
+                    try { if (exp === 'new') await openOfficeNew(o.id); else await enterOffice(o.id) } catch (e) { setErr((e as Error).message) }
+                    setBusy(null)
+                  }
+                  const primary = isNew ? 'new' : 'classic'
+                  const secondary = isNew ? 'classic' : 'new'
+                  const label = (exp: 'classic' | 'new') => (exp === 'new' ? 'Kantor baru' : 'Kantor lama')
+                  return (
+                    <div key={o.id} className="flex items-center gap-4 rounded-[24px] bg-white p-4 text-left shadow-[0_6px_0_#b9d3ee]">
+                      <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-sky-100 text-[26px]">🏢</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-display text-[18px] font-semibold text-slate-900">{o.name}</span>
+                        <span className="block text-[12.5px] text-slate-500">{o.employeeCount ?? 0} AI · {o.timezone}</span>
+                        <button disabled={!!busy} onClick={() => void open(secondary)} className="mt-0.5 text-[12px] font-semibold text-sky-600 hover:underline disabled:opacity-60">
+                          Buka di {label(secondary)} →
+                        </button>
+                      </span>
+                      <button disabled={!!busy} onClick={() => void open(primary)}
+                        className="shrink-0 rounded-xl bg-[#22c55e] px-3.5 py-2 font-display text-[14px] font-semibold text-white shadow-[0_4px_0_#15803d] transition-transform hover:-translate-y-0.5 active:translate-y-[3px] disabled:opacity-60">
+                        {busy === o.id ? '…' : isNew ? 'Masuk · baru' : 'Masuk'}
+                      </button>
+                    </div>
+                  )
+                })}
                 <button
                   onClick={() => st.set({ newOfficeOpen: true })}
                   className="flex min-h-[88px] items-center justify-center gap-2 rounded-[24px] border-[3px] border-dashed border-white/80 bg-white/25 font-display text-[16px] font-semibold text-white transition-colors hover:bg-white/40"
                 >
-                  + Kantor baru
+                  + Buat kantor
                 </button>
               </div>
             </div>

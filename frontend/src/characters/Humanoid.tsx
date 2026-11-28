@@ -17,7 +17,7 @@ import { poseAt, type Pose, type PoseName } from './poses'
 
 // ---------- material bersama: plastik halus + rim light lembut ----------
 const RIM = { value: new THREE.Color('#dfeeff').multiplyScalar(0.35) }
-const BODY_MAT = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0 })
+export const BODY_MAT = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0 })
 BODY_MAT.onBeforeCompile = (sh) => {
   sh.uniforms.rimColor = RIM
   sh.fragmentShader = 'uniform vec3 rimColor;\n' + sh.fragmentShader.replace(
@@ -33,8 +33,11 @@ BODY_MAT.customProgramCacheKey = () => 'avo-blocky-rim'
 type V3 = [number, number, number]
 
 const rbCache = new Map<string, THREE.BufferGeometry>()
+/** Batas kehalusan sudut; Office Baru memakai versi ringan (setBlockyLowDetail). */
+const DETAIL = { max: 99, headMax: 99 }
 /** Balok membulat dengan dimensi asli (radius tidak ikut terdistorsi skala). */
-function rbox(w: number, h: number, d: number, r = 0.025, seg = 3) {
+function rbox(w: number, h: number, d: number, r = 0.025, segIn = 3) {
+  const seg = Math.min(segIn, segIn >= 4 ? DETAIL.headMax : DETAIL.max)
   const k = `${w}|${h}|${d}|${r}|${seg}`
   let g = rbCache.get(k)
   if (!g) { g = new RoundedBoxGeometry(w, h, d, seg, Math.min(r, w / 2, h / 2, d / 2) - 1e-4); rbCache.set(k, g) }
@@ -42,13 +45,30 @@ function rbox(w: number, h: number, d: number, r = 0.025, seg = 3) {
 }
 
 const G = {
-  sphere: new THREE.SphereGeometry(1, 14, 10),
+  sphere: new THREE.SphereGeometry(1, 14, 10) as THREE.BufferGeometry,
   cyl: new THREE.CylinderGeometry(1, 1, 1, 14),
   box: new THREE.BoxGeometry(1, 1, 1),
   capsule: new THREE.CapsuleGeometry(1, 1.2, 4, 10),
   smile: new THREE.TorusGeometry(1, 0.17, 6, 16, Math.PI),
   band: new THREE.TorusGeometry(1, 0.06, 6, 24, Math.PI),
   disc: new THREE.CircleGeometry(1, 16, 0, Math.PI),
+}
+
+/**
+ * Versi ringan untuk banyak karakter sekaligus (Office Baru, ±40 orang): bentuk & warna sama, segitiga ±6× lebih
+ * sedikit (sudut membulat 1 segmen, kepala 2, bola/kapsul kasar). Panggil sebelum buildBody pertama.
+ */
+export function setBlockyLowDetail() {
+  DETAIL.max = 1
+  DETAIL.headMax = 2
+  G.sphere = new THREE.SphereGeometry(1, 6, 4)
+  G.cyl = new THREE.CylinderGeometry(1, 1, 1, 8)
+  G.capsule = new THREE.CapsuleGeometry(1, 1.2, 2, 6)
+  G.smile = new THREE.TorusGeometry(1, 0.17, 3, 8, Math.PI)
+  G.band = new THREE.TorusGeometry(1, 0.06, 3, 12, Math.PI)
+  G.disc = new THREE.CircleGeometry(1, 8, 0, Math.PI)
+  rbCache.clear()
+  bodyCache.clear()
 }
 
 // ---------- utilitas warna ----------
@@ -91,14 +111,14 @@ export const SHOULDER_X = TORSO.w / 2 + ARM.w / 2
 export const SHOULDER_Y = TORSO.h - 0.06
 export const NECK_Y = TORSO.h
 export const HIP_Y = 0.64
-const SPINE_Y = 0.06
-const HIP_X = LEG.w / 2 + 0.005
-const THIGH_L = 0.31
-const ELBOW_Y = -0.26
+export const SPINE_Y = 0.06
+export const HIP_X = LEG.w / 2 + 0.005
+export const THIGH_L = 0.31
+export const ELBOW_Y = -0.26
 const INK = '#1d1a20'
 
 // ---------- perakitan tubuh per appearance (di-cache) ----------
-interface BodyGeos {
+export interface BodyGeos {
   hips: THREE.BufferGeometry; spine: THREE.BufferGeometry; head: THREE.BufferGeometry
   upperL: THREE.BufferGeometry; upperR: THREE.BufferGeometry; foreL: THREE.BufferGeometry; foreR: THREE.BufferGeometry
   thigh: THREE.BufferGeometry; shin: THREE.BufferGeometry
@@ -215,7 +235,8 @@ function buildAccessory(ap: Appearance, h: number): Part[] {
   return parts
 }
 
-function buildBody(ap: Appearance): BodyGeos {
+/** Dipakai juga oleh Office Baru (office-new/scene/BlockyAvatar.tsx, versi SkinnedMesh 1 draw call). */
+export function buildBody(ap: Appearance): BodyGeos {
   const key = JSON.stringify(ap)
   const hit = bodyCache.get(key)
   if (hit) return hit

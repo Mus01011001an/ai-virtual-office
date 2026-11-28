@@ -10,7 +10,8 @@ export type OfficeEventType =
   | 'schedule.transition' | 'standup.started' | 'standup.item' | 'standup.completed'
   | 'presence.update' | 'presence.voice-signal'
   | 'approval.requested' | 'approval.decided' | 'integration.event'
-  | 'brain.entry' | 'brain.deleted';
+  | 'brain.entry' | 'brain.deleted'
+  | 'claude.event';
 
 interface OfficeEvent { companyId: string; type: OfficeEventType; data: unknown }
 

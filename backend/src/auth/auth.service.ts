@@ -5,6 +5,7 @@ import { auth } from 'src/lib/auth';
 import { SignUpDto } from './dto/signup.dto';
 import { SignInDto } from './dto/signin.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { experienceOf } from 'src/system/company/office-experience';
 
 /** Pola auth.service Musyan (signup/signin/workspaces/switch-company), tanpa sinkron Chatwoot. */
 @Injectable()
@@ -134,7 +135,7 @@ export class AuthService {
       include: {
         company: {
           select: {
-            id: true, name: true, createdAt: true,
+            id: true, name: true, createdAt: true, modules: true,
             officeProfile: { select: { template: true, timezone: true } },
             _count: { select: { employees: { where: { deletedAt: null } } } },
           },
@@ -153,6 +154,7 @@ export class AuthService {
         role: m.role,
         isOwner: m.isOwner,
         isDefault: m.isDefault,
+        experience: experienceOf(m.company.modules),
       })),
       meta: { total: memberships.length },
     };

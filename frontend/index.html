@@ -4,6 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Virtual AI Office</title>
+    <script>
+      // Office lama disembunyikan (2026-11-27, docs/ai-office-product-spec.md): semua masuk ke Office Baru.
+      // Office lama tetap ada untuk admin lewat /?legacy.
+      if (!/[?&]legacy(=|&|$)/.test(location.search)) location.replace('/office-new/');
+    </script>
       <!-- Fredoka: font display membulat & ceria untuk judul/tombol (gaya game blocky) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

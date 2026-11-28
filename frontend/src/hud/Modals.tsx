@@ -12,6 +12,7 @@ export function NewOfficeModal() {
   const st = useOffice()
   const [name, setName] = useState('')
   const [template, setTemplate] = useState<'empty' | 'demo-team'>('empty')
+  const [experience, setExperience] = useState<'classic' | 'new'>('new')
   const [tz, setTz] = useState('Asia/Jakarta')
   const [isProvisionOther, setIsProvisionOther] = useState(false)
   const [ownerName, setOwnerName] = useState('')
@@ -33,9 +34,10 @@ export function NewOfficeModal() {
       }
       await createOffice(
         name.trim() || `Office ${st.offices.length + 1}`,
-        template,
+        experience === 'new' ? 'empty' : template,
         tz,
-        isProvisionOther ? { name: ownerName.trim(), email: ownerEmail.trim(), password: ownerPassword } : undefined
+        isProvisionOther ? { name: ownerName.trim(), email: ownerEmail.trim(), password: ownerPassword } : undefined,
+        experience,
       )
       st.set({ newOfficeOpen: false }); setName(''); setOwnerName(''); setOwnerEmail(''); setOwnerPassword(''); setIsProvisionOther(false)
     } catch (e) { setErr((e as Error).message) } finally { setBusy(false) }
@@ -46,7 +48,16 @@ export function NewOfficeModal() {
       <div className="space-y-4 p-5 text-sm max-h-[85vh] overflow-y-auto">
         <p className="text-xs text-bone/55">Setiap office memiliki AI workforce, ruang diskusi 3D, task, dan anggota terisolasi secara multi-tenant.</p>
         <Field label="Nama office"><input autoFocus className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="mis. Divisi Digital Musyan" /></Field>
-        <Field label="Template">
+        <Field label="Jenis kantor">
+          <div className="grid grid-cols-2 gap-2">
+            {([['new', 'Kantor baru', 'Gedung 10 ruangan, Agent HQ, Claude Code'], ['classic', 'Kantor lama', 'Kantor 3D blocky ceria']] as const).map(([k, t, d]) => (
+              <button key={k} onClick={() => setExperience(k)} className={`rounded-2xl border p-3 text-left transition-colors ${experience === k ? 'border-accent bg-accent/10' : 'border-line hover:bg-white/[0.04]'}`}>
+                <div className="text-[14px] font-semibold">{t}</div><div className="text-[11px] text-bone/50">{d}</div>
+              </button>
+            ))}
+          </div>
+        </Field>
+        {experience === 'classic' && <Field label="Template">
           <div className="grid grid-cols-2 gap-2">
             {([['empty', 'Kantor kosong', 'Rekrut agent sendiri'], ['demo-team', 'Kantor + tim demo', '12 employee simulasi (DEMO)']] as const).map(([k, t, d]) => (
               <button key={k} onClick={() => setTemplate(k)} className={`rounded-2xl border p-3 text-left transition-colors ${template === k ? 'border-accent bg-accent/10' : 'border-line hover:bg-white/[0.04]'}`}>
@@ -54,7 +65,7 @@ export function NewOfficeModal() {
               </button>
             ))}
           </div>
-        </Field>
+        </Field>}
         <Field label="Timezone"><select className={inputCls} value={tz} onChange={(e) => setTz(e.target.value)}>{TIMEZONES.map((t) => <option key={t} className="bg-ink">{t}</option>)}</select></Field>
 
         <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3.5 space-y-3">

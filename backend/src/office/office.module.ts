@@ -33,6 +33,8 @@ import { McpModule } from './mcp/mcp.module';
 import { AdminCatalogController, CatalogController } from './catalog/catalog.controller';
 import { CatalogService } from './catalog/catalog.service';
 import { BrainController } from './brain/brain.controller';
+import { ClaudeCodeController } from './claude-code/claude-code.controller';
+import { ClaudeCodeService } from './claude-code/claude-code.service';
 
 /** Domain virtual office: AI provider, AI engine, employee, task, diskusi, jadwal, presence, realtime SSE, sandbox, approvals, webhook integrations, voice engine. */
 @Global()
@@ -53,9 +55,11 @@ import { BrainController } from './brain/brain.controller';
     CatalogController,
     AdminCatalogController,
     BrainController,
+    ClaudeCodeController,
   ],
   providers: [
     OfficeEventsService,
+    ClaudeCodeService,
     AiProviderService,
     EmployeeService,
     TaskService,

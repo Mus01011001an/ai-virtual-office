@@ -78,6 +78,8 @@ export interface Office {
   isOwner?: boolean
   voiceRadius?: number
   voiceProximityEnabled?: boolean
+  /** 'new' = dibuka di Office Baru (/office-new/), 'classic' = office ini. */
+  experience?: 'classic' | 'new'
 }
 
 /** User login + konteks office aktif (hasil customSession backend). */

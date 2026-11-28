@@ -13,7 +13,7 @@ import { spatialVoice } from '../audio/spatial-voice'
 import type { ActivityKind, Appearance, Employee, Me, Office, TaskItem } from './types'
 
 // ---------- tipe respons backend ----------
-interface ApiWorkspace { companyId: string; name: string; template: 'EMPTY' | 'DEMO_TEAM'; timezone: string; employeeCount: number; role: { name: string } | null; isOwner: boolean }
+interface ApiWorkspace { companyId: string; name: string; template: 'EMPTY' | 'DEMO_TEAM'; timezone: string; employeeCount: number; role: { name: string } | null; isOwner: boolean; experience?: 'classic' | 'new' }
 export interface ApiEmployee {
   id: string; name: string; role: string; department: string; provider: string; providerId: string | null; model: string
   skills: string[]; systemPrompt: string; deskIndex: number; appearance: Partial<Appearance>; status: Employee['status']
@@ -64,7 +64,7 @@ export function toEmployee(e: Partial<ApiEmployee> & { id: string }, officeId: s
 }
 const toOffice = (w: ApiWorkspace): Office => ({
   id: w.companyId, name: w.name, template: w.template === 'DEMO_TEAM' ? 'demo-team' : 'empty', timezone: w.timezone,
-  createdAt: 0, employeeCount: w.employeeCount, role: w.role?.name ?? null, isOwner: w.isOwner,
+  createdAt: 0, employeeCount: w.employeeCount, role: w.role?.name ?? null, isOwner: w.isOwner, experience: w.experience ?? 'classic',
 })
 const toTask = (t: ApiTask): TaskItem => ({
   id: t.id, employeeId: t.employeeId, title: t.title, status: t.status === 'CANCELLED' ? 'FAILED' : t.status === 'WAITING' ? 'QUEUED' : t.status,
@@ -128,11 +128,13 @@ export async function createOffice(
   template: 'empty' | 'demo-team',
   timezone: string,
   owner?: { name: string; email: string; password: string },
+  experience: 'classic' | 'new' = 'classic',
 ) {
   const payload: any = {
     name,
     template: template === 'demo-team' ? 'DEMO_TEAM' : 'EMPTY',
     timezone,
+    experience,
   }
   if (owner && owner.email) {
     payload.owner = owner
@@ -140,9 +142,16 @@ export async function createOffice(
   const o = await post<{ id: string }>('/system/companies', payload)
   await loadWorkspaces()
   if (!owner) {
-    await enterOffice(o.id)
+    if (experience === 'new') await openOfficeNew(o.id)
+    else await enterOffice(o.id)
   }
   return o
+}
+
+/** Buka office di Office Baru (/office-new/): pindahkan sesi ke office itu lalu pindah halaman. */
+export async function openOfficeNew(id: string) {
+  await post('/auth/switch-company', { companyId: id })
+  window.location.href = '/office-new/'
 }
 
 export async function archiveCurrentOffice() {

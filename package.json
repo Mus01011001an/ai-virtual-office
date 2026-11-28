@@ -20,7 +20,8 @@
     "typecheck:backend": "npm --prefix backend run typecheck",
     "git": "node dev.mjs --git",
     "commit": "node dev.mjs --direct-push",
-    "push": "node dev.mjs --push-select"
+    "push": "node dev.mjs --push-select",
+    "office-new:assets": "node tools/office-new/premium/build.mjs"
   },
   "dependencies": {
     "inquirer": "^9.3.7"

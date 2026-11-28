@@ -85,3 +85,6 @@ temp/
 
 # Referensi lokal (repo lain, berisi .env) — jangan ikut di-commit
 musyan-workspace-reference/
+
+# Office Baru: model Synty hasil konversi lokal (aset berbayar, jangan di-commit)
+frontend/public/office-new/models/

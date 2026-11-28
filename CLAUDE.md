@@ -92,3 +92,18 @@ Frontend ↔ backend: `frontend/src/lib/api.ts` (Bearer token in localStorage, e
 ## Demo Mode rule (product requirement)
 
 Offices created from template `demo-team` (`DEMO_TEAM` on the server) get 12 fixtures (`state/demoTeam.ts`, `isDemo: true`), animated by `state/demoEngine.ts`. Demo data must always be visibly labeled DEMO (name tag, panels, monitor, status board). Employees created via "+ Rekrut" (`isDemo: false`) must not be simulated. They stay IDLE until the real AI engine exists. Tabs that need backend data (AI Conversation, Files, Performance) show an explicit "pending backend" state, not fake data. When the backend lands, replace the demo engine with a data source that writes the same `Employee.status`/`slot`/`currentTool`/`progress` fields, so the 3D layer needs no changes.
+
+## Office Baru (`/office-new/`)
+
+Pengalaman kantor utama (sejak 2026-11-27 `/` diarahkan ke `/office-new/`; office lama hanya via `/?legacy`, kodenya tetap),
+rekonstruksi video referensi (Agent Office / Office 2.0). Fokus: otak = Claude Code; UI tidak menawarkan AI team/Demo
+(hanya `?source=avo|demo`). Login & pilih office: `office-new/ui/Gate.tsx`. Docs:
+`docs/ai-office-project-audit.md`, `docs/ai-office-reference-analysis.md` (+ screenshot `docs/ai-office-reference/`),
+`docs/ai-office-product-spec.md`, `docs/ai-office-architecture.md`, `docs/ai-office-claude-code.md`,
+`docs/ai-office-visual-comparison.md`. Aturan:
+- Kode di `frontend/src/office-new/**` (entry `frontend/office-new/index.html`). Jangan import dari kode office lama selain `src/lib/api.ts` dan karakter blocky (`characters/Humanoid.tsx`, `characters/poses.ts`, dipakai `office-new/scene/BlockyAvatar.tsx`); office lama tidak boleh berubah karena Office Baru, kecuali pintu masuk pilihan jenis kantor (`Office.experience`, flag `office-new` di `Company.modules`, lihat `docs/ai-office-product-spec.md`).
+- Dasar kode = `premium-app` repo MIT `GENERAL009/Agent-Office` (lisensi disertakan). Label HUD Inggris sengaja (identik referensi).
+- Default sumber = Claude Code (seperti video; otak = Claude Code, office hanya mendengar hook, 0 token). Data nyata: `core/avo/BackendAdapter.ts` (employees/tasks/SSE) dan hook Claude Code (`backend/src/office/claude-code`, `frontend/public/office-new/claude-hook.mjs`). Demo selalu berlabel DEMO.
+- Aset: kit CC0 `scene/fallback/kit.ts`; model Synty hanya lewat `npm run office-new:assets` ke `frontend/public/office-new/models/` (gitignored, jangan commit).
+- Jangan pakai N8AO (diuji ulang 2026-11-27: masih crash) atau SSAO (berbintik); AO = bayangan kontak. Jaga draw call ≤ ±250 (karakter = SkinnedMesh 1 draw call, prop kit lewat mergeByMaterial/StaticBatch); jangan unmount Canvas yang berisi drei `<Html>` saat ganti mode (pakai `frameloop="never"` + visibility).
+- Deploy dev: `./deploy.sh fe|be|all` → https://office.musyan.my.id/office-new/ (nginx sudah melayani subfolder). Mode aset dipilih lewat `frontend/public/office-new/models.json`.

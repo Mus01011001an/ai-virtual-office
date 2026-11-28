@@ -1,3 +1,4 @@
+import { OFFICE_EXPERIENCES, type OfficeExperience } from '../office-experience';
 import { IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -37,4 +38,9 @@ export class CreateCompanyDto {
   @ValidateNested()
   @Type(() => DesignatedOwnerDto)
   owner?: DesignatedOwnerDto;
+
+  /** 'new' = buka di Office Baru (/office-new/). Default 'classic'. */
+  @IsOptional()
+  @IsIn(OFFICE_EXPERIENCES)
+  experience?: OfficeExperience;
 }

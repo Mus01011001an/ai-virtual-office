@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #e9edf5;
+  --color-muted: #8b93a7;
+  --color-panel: rgb(14 17 26 / 0.86);
+  --color-line: rgb(255 255 255 / 0.08);
+  --color-accent: #7c9cff;
+  --color-demo: #fbbf24;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+
+html, body, #root { height: 100%; }
+/* Tanpa seleksi teks / kilatan tap: menyeret kamera (mouse atau jari, terutama di iPad) tidak lagi memblok
+   seluruh layar jadi biru seperti "select all". Kolom isian tetap bisa diseleksi. */
+html, body, #root {
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+input, textarea, [contenteditable="true"] { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+canvas, canvas + div { touch-action: none !important; outline: none; -webkit-tap-highlight-color: transparent; }
+*:focus { outline: none; }
+::selection { background: transparent; }
+input::selection, textarea::selection { background: rgb(124 156 255 / 0.35); }
+body { margin: 0; background: #07090f; color: var(--color-ink); font-family: var(--font-sans); overflow: hidden; -webkit-font-smoothing: antialiased; }
+
+/* tanpa backdrop-filter: blur di atas kanvas WebGL yang terus berubah sangat mahal (terutama Safari iPad) */
+.panel { background: rgb(14 17 26 / 0.93); border: 1px solid var(--color-line); border-radius: 16px; }
+.scroll-thin { scrollbar-width: thin; scrollbar-color: rgb(255 255 255 / 0.15) transparent; }
+.kbd { display: inline-flex; min-width: 1.5rem; height: 1.5rem; align-items: center; justify-content: center; padding: 0 0.4rem; border-radius: 6px; border: 1px solid rgb(255 255 255 / 0.18); background: rgb(255 255 255 / 0.06); font-family: var(--font-mono); font-size: 0.72rem; }
+@keyframes ao-pulse { from { transform: scaleY(0.35); } to { transform: scaleY(1); } }
