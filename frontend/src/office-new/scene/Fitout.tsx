@@ -318,8 +318,6 @@ const CEILING_EXTRAS: Item[] = [
   ['Light_04', t.x - 1.2, 3.0, t.z], ['Light_04', t.x + 1.2, 3.0, t.z], ['Light_05', -6.25, 3.0, -11.3],
   ['Light_02', k.x - 0.7, 3.0, k.z], ['Light_02', k.x, 3.0, k.z], ['Light_02', k.x + 0.7, 3.0, k.z],
   ['Light_03', r.x - 0.8, 3.0, r.z], ['Light_03', r.x + 0.8, 3.0, r.z],
-  ['Light_01', POOL_TABLES[0].x - 0.8, 3.0, POOL_TABLES[0].z], ['Light_01', POOL_TABLES[0].x + 0.8, 3.0, POOL_TABLES[0].z],
-  ['Light_01', P1.x - 0.8, 3.0, P1.z], ['Light_01', P1.x + 0.8, 3.0, P1.z],
   ['Light_Fluorescent_01', 7.5, 3.0, -11.0], ['Light_Fluorescent_01', 7.5, 3.0, -8.0],
   // fans, air conditioning, projectors
   ['CeilingFan_01', -5, 3.0, 5], ['CeilingFan_01', -5, 3.0, 11], ['CeilingFan_02', 12.5, 3.0, -11.5],

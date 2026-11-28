@@ -2,11 +2,11 @@
 
 Sejak 2026-11-27 Office Baru bekerja seperti video referensi: **otaknya Claude Code** di terminal Anda; office hanya
 mendengar hook (0 token model, tanpa AI provider/API key). Sumber default Office Baru = *Claude Code (live hooks)*
-bila sudah login; pilihan lain (AI team backend, Demo) di ⚙ dan diingat per browser (`localStorage avo-office-new-source`).
+bila sudah login; pilihan lain (AI team backend, Demo) di ☰ dan diingat per browser (`localStorage avo-office-new-source`).
 
 ## Pasang (sekali per project)
 
-1. Login di office (`/`), buka `/office-new/` → ⚙ → *Connect Claude Code* → **Copy install command**.
+1. Login di office (`/`), buka `/office-new/` → ☰ → *Connect Claude Code* → **Copy install command**.
 2. Jalankan di folder project. Perintahnya:
    `mkdir -p .claude && curl -fsSL <frontend>/office-new/claude-hook.mjs -o .claude/avo-office-hook.mjs && node .claude/avo-office-hook.mjs install --api <API_URL> --token <TOKEN>`
    Installer (`frontend/public/office-new/claude-hook.mjs install`, idempoten):
@@ -25,7 +25,7 @@ Office bisa memberi perintah ke Claude Code di komputer pemilik — tanpa API ke
    Token & API diambil dari `.claude/settings.local.json`. Opsi: `--team` (semua anggota office boleh memberi tugas;
    default hanya pemilik token), `--mode <permission-mode>` (default `acceptEdits`), `--allow "<allowedTools>"`
    (default npm run/test, npx tsc, git status/diff/log, ls), `--model`, `--claude <path>`.
-2. Office: ⚙ → *Connect Claude Code* langkah 4 menampilkan status runner; panel **New task** dan **Assign task**
+2. Office: ☰ → *Connect Claude Code* langkah 4 menampilkan status runner; panel **New task** dan **Assign task**
    aktif selama runner online; chat ke karyawan (E / klik) dijawab Claude sebagai karyawan itu.
 
 Alur: office `POST /office/claude-code/commands` `{kind: task|chat, text, to?, toName?}` → antrean di memori per office

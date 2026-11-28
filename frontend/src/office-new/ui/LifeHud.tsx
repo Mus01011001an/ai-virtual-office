@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from './motion';
 import { useOffice } from '../store/useOffice';
-import { Btn, Icon } from './common';
+import { Icon } from './common';
 import { useEffect, useState } from 'react';
 import { TouchControls } from './TouchControls';
 import { CAN_LOCK } from '../scene/Player';
@@ -49,33 +49,9 @@ export function LifeHud() {
         <span><span className="kbd">E</span> interact</span>
         <span><span className="kbd">V</span> 1st / 3rd person</span>
         <span>{CAN_LOCK ? 'click → mouse look · drag also works' : 'point the mouse left/right to look · drag or swipe also works'}</span>
-        <span><span className="kbd">Esc</span> menu</span>
+        <span><span className="kbd">Esc</span> cursor · ☰ menu</span>
       </div>
       )}
     </>
-  );
-}
-
-export function PauseMenu() {
-  const s = useOffice();
-  return (
-    <motion.div className="pointer-events-auto fixed inset-0 z-40 flex items-center justify-center bg-black/55" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-      <motion.div initial={{ scale: 0.96 }} animate={{ scale: 1 }} className="panel w-[340px] p-5">
-        <h2 className="mb-1 text-[18px] font-bold">Paused</h2>
-        <p className="mb-4 text-[12.5px] text-muted">The team keeps working while you're paused.</p>
-        <div className="flex flex-col gap-2">
-          <Btn variant="primary" onClick={() => s.setMenu(false)}>Resume walking</Btn>
-          <Btn onClick={() => s.setCameraStyle(s.cameraStyle === 'third' ? 'first' : 'third')}>Camera: {s.cameraStyle === 'third' ? '3rd person → switch to 1st' : '1st person → switch to 3rd'}</Btn>
-          <Btn onClick={() => { s.setMenu(false); s.openModal('whiteboard'); }}>Open project whiteboard</Btn>
-          <Btn onClick={() => { s.setMenu(false); s.setDashboard(!s.dashboardOpen); }}>{s.dashboardOpen ? 'Hide' : 'Show'} dashboard</Btn>
-          <Btn onClick={() => s.setMode('overview')}>Back to Overview</Btn>
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-1 text-[11.5px] text-muted">
-          <span><span className="kbd">WASD</span> walk</span><span><span className="kbd">Shift</span> run</span>
-          <span><span className="kbd">Space</span> jump</span><span><span className="kbd">E</span> talk / use</span>
-          <span><span className="kbd">V</span> camera</span><span><span className="kbd">Esc</span> menu</span>
-        </div>
-      </motion.div>
-    </motion.div>
   );
 }

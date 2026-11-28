@@ -122,9 +122,24 @@ export function BlockyAvatar({ appearance, pose, seed, visible = true }: { appea
   }), [seed]);
   const bones = useMemo(() => MOCAP_BONES.map((n) => rig.bones[n as BoneName]), [rig]);
 
+  const stepsOnly = (dt: number) => {
+    const p = pose.current;
+    const want = clipFor(p);
+    const clip = want && want !== 'idle' ? CLIPS[want] : undefined;
+    if (!clip || !want) { mo.clip = want; return; }
+    mo.clip = want;
+    const natural = NATURAL_SPEED[want];
+    const rate = THREE.MathUtils.clamp((p.speed ?? natural) / natural, 0.55, 2.6);
+    const a = mo.phase;
+    mo.phase = (mo.phase + (dt * rate) / clip.duration) % 1;
+    const z = mo.phase;
+    for (const s of clip.steps) if (a <= z ? s > a && s <= z : s > a || s <= z) { rig.mesh.getWorldPosition(wp); sfx.footstep(wp.x, wp.z, want === 'run'); }
+  };
+
   useFrame((state, dtRaw) => {
-    if (!visible) return;
     const dt = Math.min(dtRaw, 0.05);
+    // tak terlihat (pemain di orang pertama): tulang tidak dihitung, tapi langkah kaki tetap berbunyi
+    if (!visible) { stepsOnly(dt); return; }
     const t = state.clock.elapsedTime;
     const p = pose.current;
     const name = poseName(p);

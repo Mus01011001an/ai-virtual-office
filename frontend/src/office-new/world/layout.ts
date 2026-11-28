@@ -352,16 +352,10 @@ export const OBSTACLES: Box[] = [
   box(-19.4, 3.9, 0.8, 1.3), // fridge
   box(-11.0, -1.8, 1.25, 0.85), // vending machine
   box(-12.6, -1.9, 0.6, 0.5), // water cooler
-  ...POOL_TABLES.map((p) => box(p.x, p.z, 3.4, 1.95)),
-  box(FOOSBALL.x, FOOSBALL.z, 1.5, 1.45),
   box(SOFA.x, SOFA.z, SOFA.w, SOFA.d),
   box(LOUNGE_TABLE.x, LOUNGE_TABLE.z, LOUNGE_TABLE.w, LOUNGE_TABLE.d),
-  ...BEANBAGS.map(([x, z]) => box(x, z, 0.9, 0.9)),
   box(RECEPTION.x + 0.04, RECEPTION.z + 0.25, 3.2, 0.9), box(RECEPTION.x - 1.15, RECEPTION.z - 0.6, 0.8, 1.0), // L-shaped desk; the receptionist sits in its corner
   box(LOBBY_SOFA.x, LOBBY_SOFA.z, 0.95, 2.3),
-  box(TABLE_TENNIS.x, TABLE_TENNIS.z, 4.1, 2.05),
-  box(19.3, -8.6, 1.0, 0.9), // arcade
-  box(19.3, -6.6, 0.8, 1.2), // jukebox
   box(19.4, -11.3, 0.85, 1.25), // vending machine
   box(11.9, -6.9, 1.9, 1.9), // snack table
   box(-3.6, -7.0, 0.92, 1.94), // manager couch
@@ -378,10 +372,8 @@ export const OBSTACLES: Box[] = [
   box(6.4, 13.6, 0.9, 1.8), // treadmill under the standing desk
   box(13.4, 12.3, 0.7, 0.7), // print station chair
   box(11.42, 13.6, 0.1, 2.5), box(7.72, 14.2, 0.1, 1.25), box(4.9, 13.85, 0.1, 2.0), // dividers
-  box(18.6, -13.3, 0.7, 0.7), // gym ball
   box(-6.0, -2.1, 1.4, 0.4), // shelf
   box(1.4, 5.4, 0.8, 0.8),
-  box(1.0, 6.5, 0.6, 0.6), // fan
   ...DECOR_BOXES.map((e) => e.box),
 ];
 

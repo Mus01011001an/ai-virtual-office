@@ -1,4 +1,7 @@
 import { create } from 'zustand';
+import { loadWeather, saveWeather, type Weather } from '../scene/weather';
+import { saveMode, savedMode } from '../world/spawn';
+import { sfx } from '../scene/sfx';
 import type { AgentDataAdapter, OfficeSnapshot } from '../core/adapter';
 import type { Agent, AgentId, Lang, LogEntry, Message, OfficeEvent, Project, Task } from '../core/types';
 import { uid } from '../core/types';
@@ -34,6 +37,9 @@ interface OfficeState extends OfficeSnapshot {
   running: boolean;
 
   mode: ViewMode;
+  /** cuaca & waktu (☰ → Weather & time) */
+  weather: Weather;
+  setWeather(w: Partial<Weather>): void;
   cameraStyle: CameraStyle;
   preset: CameraPreset;
   presetNonce: number;
@@ -134,6 +140,8 @@ export const useOffice = create<OfficeState>((set, get) => {
   const start: SourceKind = IN_PLUGIN ? 'claude-code' : wanted && KINDS.includes(wanted) ? wanted : getToken() ? 'claude-code' : 'demo';
   const adapter = makeAdapter(start);
   queueMicrotask(() => adapter.connect(ctx));
+  // refresh di Walk in = kembali ke Walk in (posisi terakhir dipulihkan oleh Player); hujan menyala lagi bila dipilih
+  queueMicrotask(() => { if (savedMode() === 'life' && !new URLSearchParams(location.search).has('render')) get().setMode('life'); sfx.setRain(get().weather.rain); });
 
   return {
     ...blank(),
@@ -148,6 +156,7 @@ export const useOffice = create<OfficeState>((set, get) => {
     speed: 1,
     running: true,
     mode: 'overview',
+    weather: loadWeather(),
     cameraStyle: 'third',
     preset: 'overview',
     presetNonce: 0,
@@ -224,7 +233,8 @@ export const useOffice = create<OfficeState>((set, get) => {
     setSpeed(x) { get().adapter.setSpeed?.(x); set({ speed: x }); },
     setRunning(r) { get().adapter.setRunning?.(r); set({ running: r }); },
     setLang(l) { set({ lang: l }); },
-    setMode(m) { set({ mode: m, menuOpen: false, hint: null, modal: null, dashboardOpen: m === 'overview' }); },
+    setMode(m) { saveMode(m); set({ mode: m, menuOpen: false, hint: null, modal: null, dashboardOpen: m === 'overview' }); },
+    setWeather(w) { const next = { ...get().weather, ...w }; saveWeather(next); sfx.setRain(next.rain); set({ weather: next }); },
     setCameraStyle(c) { set({ cameraStyle: c }); },
     goPreset(p) { set((s) => ({ preset: p, presetNonce: s.presetNonce + 1 })); },
     playShot(id) { set({ shot: id, selectedId: null, modal: null, chatWith: null }); },

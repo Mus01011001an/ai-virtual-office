@@ -22,6 +22,8 @@ import { player } from '../world/runtime';
 import { LIGHT_POOL, Q } from './quality';
 import { FOCUS } from './lens';
 import { perf, usePerf } from './perf';
+import { skyFor } from './weather';
+import { Rain } from './Rain';
 import { sfx } from './sfx';
 
 /** Warm room lights, like ceiling lamps: [x, z, intensity, distance]. */
@@ -32,14 +34,14 @@ const ROOM_LIGHTS: [number, number, number, number][] = [
   [7.5, 6, 26, 14], [15, 6, 26, 14], [0, 12.5, 9, 6],
 ];
 
-/** The sun/moon shadows only change when the building does, so draw them a few times after loading, not every frame. */
-function StaticShadows() {
+/** The sun/moon shadows only change when the building (or the time of day) does: draw them a few times, not every frame. */
+function StaticShadows({ version }: { version: string }) {
   const gl = useThree((s) => s.gl);
   useEffect(() => {
     gl.shadowMap.autoUpdate = false;
     const timers = [300, 1500, 4000].map((t) => setTimeout(() => { gl.shadowMap.needsUpdate = true; }, t));
     return () => { timers.forEach(clearTimeout); gl.shadowMap.autoUpdate = true; };
-  }, [gl]);
+  }, [gl, version]);
   return null;
 }
 
@@ -145,6 +147,9 @@ export function OfficeScene() {
   const lensOn = useOffice((s) => Q.dof && (s.mode === 'life' || !!s.shot));
   const dof = useRef<DepthOfFieldEffect | null>(null);
   const perfOn = usePerf().on;
+  const weather = useOffice((s) => s.weather);
+  const sky = useMemo(() => skyFor(weather), [weather]);
+  const day = weather.time !== 'night';
   return (
     <Canvas
       shadows={{ type: THREE.PCFSoftShadowMap }}
@@ -158,16 +163,17 @@ export function OfficeScene() {
       onContextMenu={(e) => e.preventDefault()}
     >
       {/* evening: dark outside, the office lit warm from inside */}
-      <color attach="background" args={['#0b1222']} />
-      <fog attach="fog" args={['#0b1222', 60, 150]} />
+      {/* langit & cahaya luar mengikuti cuaca/waktu (☰ → Weather & time); default malam */}
+      <color attach="background" args={[sky.sky]} />
+      <fog attach="fog" args={[sky.sky, sky.fog[0], sky.fog[1]]} />
 
-      <hemisphereLight args={['#4a5f8f', '#2a1d14']} intensity={inside ? INSIDE.hemisphere : 0.6} />
+      <hemisphereLight args={[sky.hemiSky, sky.hemiGround]} intensity={inside ? INSIDE.hemisphere * (day ? 1.25 : 1) : sky.hemi} />
       <ambientLight intensity={inside ? INSIDE.ambient : 0.1} color="#ffe2c2" />
       {/* moonlight */}
       <directionalLight
-        position={[22, 30, 18]}
-        intensity={0.75}
-        color="#a9bcff"
+        position={sky.sun}
+        intensity={sky.sunIntensity}
+        color={sky.sunColor}
         castShadow
         shadow-mapSize={[Q.shadow, Q.shadow]}
         shadow-camera-left={-34}
@@ -192,7 +198,7 @@ export function OfficeScene() {
         : <NearestLights inside={inside} />}
 
       {/* cahaya pantul asli: HDRI interior Poly Haven "lebombo" (CC0) — pantulan & isian lembut di semua bahan */}
-      <Suspense fallback={null}><Environment files="/assets/hdri/lebombo_1k.hdr" environmentIntensity={inside ? 0.55 : 0.4} /></Suspense>
+      <Suspense fallback={null}><Environment files="/assets/hdri/lebombo_1k.hdr" environmentIntensity={inside ? (day ? 0.7 : 0.55) : sky.env} /></Suspense>
 
       <Office />
       <Suspense fallback={null}>
@@ -204,7 +210,8 @@ export function OfficeScene() {
       {RENDER && <RenderController />}
       {PERF_SHOT && <PerfProbe />}
 
-      <StaticShadows />
+      <StaticShadows version={weather.time} />
+      {weather.rain && <Rain />}
       <SfxListener />
       {perfOn && <PerfMeter />}
       {lensOn && <LensFocus dof={dof} />}

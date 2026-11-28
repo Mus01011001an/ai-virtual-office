@@ -9,7 +9,7 @@ import { Dock } from './ui/Dock';
 import { AgentPanel } from './ui/AgentPanel';
 import { ChatWindow } from './ui/ChatWindow';
 import { AssignModal, ManagerModal, MeetingModal, WhiteboardModal } from './ui/Modals';
-import { LifeHud, PauseMenu } from './ui/LifeHud';
+import { LifeHud } from './ui/LifeHud';
 import { HqScene } from './hq/HqScene';
 import { HqHud } from './hq/HqHud';
 import { HireModal } from './ui/HireModal';
@@ -31,7 +31,6 @@ export default function App() {
   const selectedId = useOffice((s) => s.selectedId);
   const chatWith = useOffice((s) => s.chatWith);
   const modal = useOffice((s) => s.modal);
-  const menuOpen = useOffice((s) => s.menuOpen);
   const uiHidden = useOffice((s) => s.uiHidden);
   const shot = useOffice((s) => s.shot);
 
@@ -138,7 +137,6 @@ export default function App() {
         {modal === 'manager' && <ManagerModal key="mg" />}
         {modal === 'hire' && <HireModal key="hire" />}
         {modal === 'reception' && <ReceptionModal key="reception" />}
-        {menuOpen && mode === 'life' && !chatWith && !modal && <PauseMenu key="pm" />}
       </AnimatePresence>
       </>}
     </div>

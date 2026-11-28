@@ -29,6 +29,7 @@ Gedung, furnitur, dan karakter dibuat prosedural di kode (tanpa lisensi pihak ke
 |---|---|---|
 | Kode dasar `frontend/src/office-new/**`, `tools/office-new/premium/*` | https://github.com/GENERAL009/Agent-Office (`premium-app/`, `plugin/premium/`) | MIT — `frontend/src/office-new/LICENSE.agent-office.txt` |
 | Kit prop & tekstur `office-new/scene/fallback/*` | dibuat prosedural di kode | milik project (tanpa pihak ketiga) |
+| Furnitur `frontend/public/office-new/kit/furniture.glb` (kursi, meja) | dibuat di Blender dari skrip `tools/office-new/blender/furniture.py` | milik project, CC0 (tanpa pihak ketiga) |
 | Font Inter, JetBrains Mono | Google Fonts via `<link>` di `frontend/office-new/index.html` | SIL OFL 1.1 |
 | Kurva gerak `frontend/src/office-new/scene/mocap/clips.json` (idle/walk/run) | diturunkan dari klip Mixamo di `Xbot.glb` (repo three.js r170, `examples/models/gltf`) lewat `tools/office-new/mocap/build-mocap.mjs`; glb sumber tidak di-commit | animasi Mixamo (Adobe): bebas royalti untuk dipakai di dalam project, tidak didistribusikan sebagai aset terpisah |
 | Synty POLYGON Office + Mixamo (opsional) | dibeli/diunduh pengguna, dikonversi lokal ke `frontend/public/office-new/models/` (gitignored) | lisensi Synty / Adobe — **tidak pernah di-commit** |

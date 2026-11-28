@@ -156,7 +156,14 @@ function footprintOf(full: string, palette: string) {
   return b;
 }
 
+/**
+ * Tidak digambar (disetujui pemilik 2026-11-28, office lebih lapang & tidak seperti mainan): permainan, mainan meja,
+ * dekorasi pesta, bola gym, kipas berdiri. Berlaku untuk semua daftar prop (Office, Fitout, isi meja, rak).
+ */
+const REMOVED = /^(PoolTable|PoolBall|PoolCue|PoolTriangle|TableFootball|TableTennis|Chair_BeanBag|ArcadeMachine|Jukebox|Console_PlayBox|Controller|Prank_|DeskToy|Figure_|Spaceship|PuzzleCube|Balloon|Bunting|Streamer|Party_Hat|Minigolf|SwissBall|Fan_Pedistal|Air_Horn|Xmas_)/;
+
 export function Prop(props: PropProps) {
+  if (REMOVED.test(props.name.replace(/^(SM_Prop_|B:)/, ''))) return null;
   return asset.premium ? <SyntyProp {...props} /> : <FallbackProp {...props} />;
 }
 

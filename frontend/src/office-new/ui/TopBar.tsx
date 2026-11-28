@@ -1,4 +1,4 @@
-// Top bar ringkas: logo + status live, pilihan mode (ikon), ruangan / kamera dalam satu tombol, sembunyikan UI, ⚙.
+// Top bar ringkas: logo + status live, pilihan mode (ikon), ruangan / kamera dalam satu tombol, sembunyikan UI, menu ☰.
 // Semua menu tetap ada, tapi hanya muncul saat diklik (layar bersih).
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useOffice, type CameraPreset } from '../store/useOffice';
@@ -11,6 +11,8 @@ import { Icon } from './common';
 import { AUTO_LEVEL, GFX_CHOICE, setGfx, type GfxChoice } from '../scene/quality';
 import { sfx } from '../scene/sfx';
 import { perf, usePerf } from '../scene/perf';
+import { placePlayer } from '../world/spawn';
+import type { TimeOfDay } from '../scene/weather';
 
 async function signOut() {
   try { await api('POST', '/auth/signout'); } catch { /* token mungkin sudah tidak valid */ }
@@ -90,13 +92,68 @@ function PerfToggle() {
   );
 }
 
-function Settings() {
+const TIMES: { id: TimeOfDay; label: string }[] = [
+  { id: 'morning', label: 'Morning' }, { id: 'noon', label: 'Noon' }, { id: 'afternoon', label: 'Afternoon' }, { id: 'night', label: 'Night' },
+];
+
+/** Cuaca & waktu: langit, matahari/bulan, kabut; hujan dengan suara yang menenangkan. */
+function WeatherSetting() {
+  const w = useOffice((s) => s.weather);
+  const setWeather = useOffice((s) => s.setWeather);
+  return (
+    <div className="mb-3">
+      <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted">Weather &amp; time</div>
+      <div className="grid grid-cols-4 gap-1 rounded-lg bg-black/25 p-0.5">
+        {TIMES.map((t) => (
+          <button key={t.id} onClick={() => setWeather({ time: t.id })}
+            className={`rounded-md py-1 text-[11px] font-semibold transition ${w.time === t.id ? 'bg-white/16 text-ink' : 'text-muted hover:bg-white/8 hover:text-ink'}`}>{t.label}</button>
+        ))}
+      </div>
+      <label className="mt-1.5 flex cursor-pointer items-center justify-between py-0.5">
+        <span>Rain <span className="text-muted">· calm rain sound</span></span>
+        <input type="checkbox" checked={w.rain} onChange={(e) => setWeather({ rain: e.target.checked })} />
+      </label>
+    </div>
+  );
+}
+
+/** Menu ☰ (kanan atas): satu-satunya tempat menu "pause" di Walk in, plus semua pengaturan. Esc tidak membukanya. */
+function MainMenu() {
+  const open = useOffice((s) => s.menuOpen);
+  const setMenu = useOffice((s) => s.setMenu);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const off = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) setMenu(false); };
+    window.addEventListener('pointerdown', off);
+    return () => window.removeEventListener('pointerdown', off);
+  }, [open, setMenu]);
+  const toggle = () => {
+    if (!open && document.pointerLockElement) document.exitPointerLock();
+    setMenu(!open);
+  };
+  return (
+    <div ref={box} className="relative">
+      <button onClick={toggle} className={`${chip} ${open ? 'bg-white/12 text-ink' : ''}`} title="Menu" aria-label="Menu"><Icon name="menu" /></button>
+      {open && <div className="panel scroll-thin absolute right-0 top-10 z-50 max-h-[calc(100vh-70px)] w-72 overflow-y-auto p-2 text-[12.5px]"><MenuBody close={() => setMenu(false)} /></div>}
+    </div>
+  );
+}
+
+function MenuBody({ close }: { close: () => void }) {
   const s = useOffice();
   const playShot = useOffice((x) => x.playShot);
   return (
-    <Menu title="Settings" width="w-64" button={<Icon name="gear" />}>
-      {(close) => (
         <div className="p-1">
+          {s.mode === 'life' && (
+            <div className="mb-3 grid grid-cols-2 gap-1.5">
+              <button onClick={close} className="rounded-md bg-accent px-2 py-1.5 font-semibold text-slate-950 hover:brightness-110">Resume</button>
+              <button onClick={() => { placePlayer(true); close(); }} className="rounded-md bg-white/6 px-2 py-1.5 font-semibold hover:bg-white/12" title="Back to the entrance">Respawn</button>
+              <button onClick={() => s.setCameraStyle(s.cameraStyle === 'third' ? 'first' : 'third')} className="rounded-md bg-white/6 px-2 py-1.5 font-semibold hover:bg-white/12">{s.cameraStyle === 'third' ? '1st person' : '3rd person'}</button>
+              <button onClick={() => s.setMode('overview')} className="rounded-md bg-white/6 px-2 py-1.5 font-semibold hover:bg-white/12">Overview</button>
+            </div>
+          )}
+          <WeatherSetting />
           {s.officeName && <div className="mb-2 truncate text-[12px]"><span className="text-muted">Office · </span><span className="font-semibold">{s.officeName}</span></div>}
           <div className="mb-3 flex gap-1.5">
             <a href="/office-new/?offices" className="flex-1 rounded-md bg-white/6 px-2 py-1.5 text-center font-semibold hover:bg-white/12">Switch office</a>
@@ -127,10 +184,8 @@ function Settings() {
             <span>Read replies aloud</span>
             <input type="checkbox" checked={s.voiceOn} onChange={(e) => s.setVoice(e.target.checked)} />
           </label>
-          <div className="mt-1 text-[11px] text-muted">H hides the interface · N T P C L open panels</div>
+          <div className="mt-1 text-[11px] text-muted">H hides the interface · N T P C L open panels · Esc frees the cursor</div>
         </div>
-      )}
-    </Menu>
   );
 }
 
@@ -184,7 +239,7 @@ export function TopBar() {
 
       <div className="ml-auto flex items-center gap-1.5">
         <button onClick={() => s.toggleUi()} className={chip} title="Hide interface (H)" aria-label="Hide interface"><Icon name="eyeOff" size={15} /></button>
-        <Settings />
+        <MainMenu />
       </div>
     </header>
   );

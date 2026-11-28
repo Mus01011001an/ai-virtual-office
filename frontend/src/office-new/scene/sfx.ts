@@ -1,7 +1,7 @@
 // Efek suara Office Baru, dibunyikan tepat pada momennya (langkah kaki saat kaki menapak di rekaman gerak, ketikan,
 // kursi diduduki, cangkir, pintu, notifikasi). Semua bunyi disintesis dengan Web Audio — tanpa file audio.
 // Posisi: volume turun dengan jarak ke kamera (senyap > 14 m), kiri/kanan mengikuti arah pandang.
-import { roomAt } from '../world/layout';
+import { FOOTPRINT, roomAt } from '../world/layout';
 
 const KEY = 'avo-office-new-sfx';
 const MAX_DIST = 14;
@@ -11,6 +11,63 @@ let master: GainNode | null = null;
 let noise: AudioBuffer | null = null;
 let enabled = (() => { try { return localStorage.getItem(KEY) !== 'off'; } catch { return true; } })();
 const listener = { x: 0, y: 1.6, z: 0, fx: 0, fz: -1 };
+const insideBuilding = (x: number, z: number) => FOOTPRINT.some((b) => x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ);
+
+// ---------------------------------------------------------------- hujan (latar, menenangkan)
+// Dua lapis desis lembut (gerimis + "badan" hujan) dan rintik acak yang jarang; di dalam gedung teredam (filter
+// lowpass turun) seperti hujan di jendela. Masuk/keluar pelan 2 dtk, tanpa petir (tidak mengagetkan).
+let rainWanted = false;
+let rain: { gain: GainNode; hiss: BiquadFilterNode; srcs: AudioBufferSourceNode[]; drip: ReturnType<typeof setInterval> } | null = null;
+let rainInside = false;
+function startRain() {
+  if (!ctx || !master || !noise || rain || ctx.state !== 'running') return;
+  const c = ctx;
+  const gain = c.createGain();
+  gain.gain.setValueAtTime(0.0001, c.currentTime);
+  gain.gain.exponentialRampToValueAtTime(1, c.currentTime + 2);
+  gain.connect(master);
+  const layer = (type: BiquadFilterType, freq: number, vol: number, rate: number) => {
+    const src = c.createBufferSource();
+    src.buffer = noise; src.loop = true; src.playbackRate.value = rate;
+    const f = c.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = 0.5;
+    const g = c.createGain(); g.gain.value = vol;
+    src.connect(f).connect(g).connect(gain);
+    src.start();
+    return { src, f };
+  };
+  const a = layer('lowpass', 2600, 0.11, 1);     // desis gerimis
+  const b = layer('lowpass', 420, 0.07, 0.6);     // badan hujan (rendah, lembut)
+  // rintik: tetes kecil acak, kiri/kanan berbeda
+  const drip = setInterval(() => {
+    if (!ctx || !rain || ctx.state !== 'running' || Math.random() < 0.35) return;
+    const t0 = ctx.currentTime + Math.random() * 0.08;
+    const src = ctx.createBufferSource(); src.buffer = noise;
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = (rainInside ? 1800 : 2600) + Math.random() * 2400; f.Q.value = 2.5;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(rainInside ? 0.035 : 0.06, t0 + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.05);
+    const pan = ctx.createStereoPanner(); pan.pan.value = Math.random() * 1.6 - 0.8;
+    src.connect(f).connect(g).connect(pan).connect(rain.gain);
+    src.start(t0, Math.random() * 0.9, 0.07);
+  }, 55);
+  rain = { gain, hiss: a.f, srcs: [a.src, b.src], drip };
+  muffleRain(true);
+}
+function stopRain() {
+  if (!rain || !ctx) return;
+  const r = rain; rain = null;
+  clearInterval(r.drip);
+  r.gain.gain.cancelScheduledValues(ctx.currentTime);
+  r.gain.gain.setValueAtTime(Math.max(0.0001, r.gain.gain.value), ctx.currentTime);
+  r.gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1.5);
+  setTimeout(() => { r.srcs.forEach((x) => { try { x.stop(); } catch { /* sudah berhenti */ } }); r.gain.disconnect(); }, 1700);
+}
+function muffleRain(force = false) {
+  if (!rain || !ctx) return;
+  const inside = insideBuilding(listener.x, listener.z) && listener.y < 3.2;
+  if (inside === rainInside && !force) return;
+  rainInside = inside;
+  rain.hiss.frequency.setTargetAtTime(inside ? 900 : 2600, ctx.currentTime, 0.4);
+  rain.gain.gain.setTargetAtTime(inside ? 0.6 : 1, ctx.currentTime, 0.4);
+}
 /** batas bunyi per detik (puluhan orang berjalan sekaligus) */
 let budget = 0, budgetT = 0;
 
@@ -28,7 +85,7 @@ function boot() {
 }
 // Browser hanya mengizinkan audio setelah interaksi pengguna.
 if (typeof window !== 'undefined') {
-  const unlock = () => { boot(); void ctx?.resume(); };
+  const unlock = () => { boot(); void ctx?.resume().then(() => { if (rainWanted && enabled) startRain(); }); };
   window.addEventListener('pointerdown', unlock, { passive: true });
   window.addEventListener('keydown', unlock);
 }
@@ -88,11 +145,21 @@ function surfaceAt(x: number, z: number): Surface {
 
 export const sfx = {
   get enabled() { return enabled; },
-  setEnabled(on: boolean) { enabled = on; try { localStorage.setItem(KEY, on ? 'on' : 'off'); } catch { /* mode privat */ } if (on) { boot(); void ctx?.resume(); } },
+  setEnabled(on: boolean) {
+    enabled = on;
+    try { localStorage.setItem(KEY, on ? 'on' : 'off'); } catch { /* mode privat */ }
+    if (on) { boot(); void ctx?.resume().then(() => { if (rainWanted) startRain(); }); } else stopRain();
+  },
+  /** Suara hujan latar (cuaca ☰ → Rain). */
+  setRain(on: boolean) {
+    rainWanted = on;
+    if (on && enabled) { boot(); if (ctx?.state === 'running') startRain(); } else stopRain();
+  },
   /** dipanggil tiap frame dari kamera */
   setListener(x: number, y: number, z: number, fx: number, fz: number) {
     const l = Math.hypot(fx, fz) || 1;
     Object.assign(listener, { x, y, z, fx: fx / l, fz: fz / l });
+    muffleRain();
   },
   /** langkah kaki — bunyinya mengikuti lantai: karpet empuk, kayu, ubin, luar */
   footstep(x: number, z: number, run = false) {
@@ -102,7 +169,26 @@ export const sfx = {
     if (s === 'carpet') noiseBurst(out, { type: 'lowpass', freq: 380, q: 0.7, decay: 0.09, gain: 0.9 });
     else if (s === 'wood') { noiseBurst(out, { type: 'bandpass', freq: 1100 + Math.random() * 300, q: 1.4, decay: 0.06, gain: 0.8 }); tone(out, { freq: 95, to: 60, decay: 0.08, gain: 0.5 }); }
     else if (s === 'tile') noiseBurst(out, { type: 'bandpass', freq: 2400 + Math.random() * 500, q: 2, decay: 0.045, gain: 0.7 });
+    else if (rainWanted) { noiseBurst(out, { type: 'bandpass', freq: 1600 + Math.random() * 600, q: 0.8, decay: 0.12, gain: 0.8 }); noiseBurst(out, { type: 'lowpass', freq: 500, decay: 0.07, gain: 0.5 }); } // genangan
     else noiseBurst(out, { type: 'bandpass', freq: 700, q: 0.9, decay: 0.08, gain: 0.7 });
+  },
+  /** loncat: desir pakaian + tolakan kaki */
+  jump(x: number, z: number) {
+    const out = voice(x, z, 0.4);
+    if (!out) return;
+    noiseBurst(out, { type: 'bandpass', freq: 700, sweepTo: 2200, attack: 0.03, decay: 0.16, gain: 0.5 });
+    noiseBurst(out, { type: 'lowpass', freq: 320, decay: 0.06, gain: 0.7 });
+  },
+  /** mendarat: debum sesuai lantai, makin keras makin tinggi jatuhnya */
+  land(x: number, z: number, speed = 4) {
+    const k = Math.min(1.4, 0.5 + speed / 8);
+    const out = voice(x, z, 0.45 * k);
+    if (!out) return;
+    tone(out, { freq: 95, to: 48, decay: 0.16, gain: 0.8 });
+    const s = surfaceAt(x, z);
+    if (s === 'carpet') noiseBurst(out, { type: 'lowpass', freq: 350, decay: 0.12, gain: 0.9 });
+    else if (s === 'outside' && rainWanted) noiseBurst(out, { type: 'bandpass', freq: 1500, q: 0.7, decay: 0.2, gain: 0.9 });
+    else noiseBurst(out, { type: 'bandpass', freq: s === 'tile' ? 2200 : s === 'wood' ? 1100 : 700, q: 1.1, decay: 0.09, gain: 0.9 });
   },
   /** satu tuts keyboard */
   key(x: number, z: number) {

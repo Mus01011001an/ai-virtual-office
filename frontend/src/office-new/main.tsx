@@ -1,6 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import { probeAssets } from './scene/assetMode';
+import { loadKitModels } from './scene/fallback/kitModels';
 import { Gate, resolveGate } from './ui/Gate';
 
 // Office Baru (docs/ai-office-architecture.md). Pintu masuk: sign in → pilih office → office (otak: Claude Code).
@@ -15,7 +16,7 @@ document.addEventListener('pointerdown', (e) => { if (!editable(e.target)) windo
 document.addEventListener('contextmenu', (e) => { if (!editable(e.target)) e.preventDefault(); });
 void resolveGate().then(async (gate) => {
   if (gate) { root.render(<Gate mode={gate} />); return; }
-  await probeAssets();
+  await Promise.all([probeAssets(), loadKitModels()]);
   const [{ default: App }, { DebugProps }, { useOffice }] = await Promise.all([
     import('./App'), import('./scene/DebugProps'), import('./store/useOffice'),
   ]);

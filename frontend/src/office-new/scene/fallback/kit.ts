@@ -6,16 +6,17 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { blobTexture, brick, carpet, chartTexture, detailTexture, herringbone, pbrTexture, screenTexture, signTexture, tiles } from './textures';
 import { Q } from '../quality';
+import { kitModel } from './kitModels';
 
 type V3 = [number, number, number];
 const mats = new Map<string, THREE.Material>();
 
 /** Material datar bersama (StaticBatch menggabung per material). */
-export function mat(color: string, o: { emissive?: string; ei?: number; rough?: number; metal?: number; map?: THREE.Texture; name?: string; glass?: boolean } = {}) {
-  const key = `${color}|${o.emissive ?? ''}|${o.ei ?? ''}|${o.rough ?? ''}|${o.metal ?? ''}|${o.map?.uuid ?? ''}|${o.name ?? ''}|${o.glass ? 1 : 0}`;
+export function mat(color: string, o: { emissive?: string; ei?: number; rough?: number; metal?: number; map?: THREE.Texture; name?: string; glass?: boolean; smooth?: boolean } = {}) {
+  const key = `${color}|${o.emissive ?? ''}|${o.ei ?? ''}|${o.rough ?? ''}|${o.metal ?? ''}|${o.map?.uuid ?? ''}|${o.name ?? ''}|${o.glass ? 1 : 0}|${o.smooth ? 's' : ''}`;
   let m = mats.get(key);
   if (!m) {
-    const s = new THREE.MeshStandardMaterial({ color, roughness: o.rough ?? 0.8, metalness: o.metal ?? 0, flatShading: true, map: o.map ?? null });
+    const s = new THREE.MeshStandardMaterial({ color, roughness: o.rough ?? 0.8, metalness: o.metal ?? 0, flatShading: !o.smooth, map: o.map ?? null });
     if (o.emissive) { s.emissive = new THREE.Color(o.emissive); s.emissiveIntensity = o.ei ?? 1; if (o.map) s.emissiveMap = o.map; }
     if (o.glass) { s.transparent = true; s.opacity = 0.22; s.roughness = 0.05; s.depthWrite = false; s.name = 'Glass'; s.flatShading = false; }
     if (o.name) s.name = o.name;
@@ -373,9 +374,33 @@ function building(short: string, pal: string): THREE.Object3D | null {
 }
 
 // ------------------------------------------------------------------ furnitur
+/** Bahan untuk model Blender: nama material Blender → bahan kit (Poly Haven + warna). */
+const MODEL_METAL = () => mat('#26282c', { metal: 0.6, rough: 0.45, smooth: true });
+const MODEL_CHROME = () => mat('#c9ccd0', { metal: 0.9, rough: 0.25, smooth: true });
+const MODEL_PLASTIC = () => mat('#1d1e22', { rough: 0.55, smooth: true });
+function modelMaterials(m: Partial<Record<'Fabric' | 'Leather' | 'Wood' | 'Laminate', THREE.Material>>) {
+  return (name: string): THREE.Material => {
+    if (name === 'Fabric') return m.Fabric ?? pbr('fabric', '#3a3d45');
+    if (name === 'Leather') return m.Leather ?? pbr('leather', '#4a3022');
+    if (name === 'Wood') return m.Wood ?? pbr('wood', C.wood);
+    if (name === 'Laminate') return m.Laminate ?? mat('#d9d4cb', { smooth: true });
+    if (name === 'Chrome') return MODEL_CHROME();
+    if (name === 'Plastic') return MODEL_PLASTIC();
+    return MODEL_METAL();
+  };
+}
+
 function chair(kind: number) {
   const g = new THREE.Group();
   const office = kind === 5 || kind === 6 || kind === 1 || kind === 2;
+  // model Blender: kursi kerja beroda / direktur kulit / kursi rapat berkaki krom
+  {
+    const colM = [C.leather, '#2d2f36', C.leather, '#5b3a24', '#22252b', '#3a3d45', C.leather, '#7a4b2c', '#30343a', '#6e3b2e', '#2c4e5a'][(kind - 1) % 11];
+    const exec = kind === 8 || kind === 10;
+    const model = kitModel(exec ? 'chair_exec' : office ? 'chair_office' : 'chair_meeting',
+      modelMaterials({ Fabric: pbr('fabric', colM), Leather: pbr('leather', exec ? (kind === 10 ? '#5a2f26' : '#6a4430') : colM === C.leather ? '#3a2a24' : colM) }));
+    if (model) return model;
+  }
   const col = [C.leather, '#2d2f36', C.leather, '#5b3a24', '#22252b', '#3a3d45', C.leather, '#7a4b2c', '#30343a', '#6e3b2e', '#2c4e5a'][(kind - 1) % 11];
   // kursi kantor: kain jaring; kursi rapat/makan/lounge: kulit
   const seat = office ? pbr('fabric', col) : pbr('leather', col);
@@ -424,6 +449,8 @@ function receptionDesk() {
 
 /** Kursi kulit sandaran tinggi (Chair_08, tamu resepsionis di video). */
 function execChair() {
+  const fromBlender = kitModel('chair_exec', modelMaterials({ Leather: pbr('leather', '#6a4430') }));
+  if (fromBlender) return fromBlender;
   const g = new THREE.Group();
   const leather = pbr('leather', '#6a4430'), base = mat('#1b1c20', { metal: 0.5, rough: 0.4 });
   for (let i = 0; i < 5; i++) { const a = (i / 5) * Math.PI * 2; const leg = b(g, base, 0.05, 0.04, 0.34, Math.sin(a) * 0.17, 0.05, Math.cos(a) * 0.17); leg.rotation.y = a; }
@@ -441,6 +468,13 @@ function desk(n: number) {
   const top = n === 1 || n === 3 ? pbr('wood', topCol) : mat(topCol);
   const side = mat(n === 3 ? C.woodDark : '#b9b2a6');
   const w = n === 4 ? 1.6 : n === 5 ? 1.8 : 1.5, d = n === 4 ? 0.8 : 0.75;
+  // model Blender: daun meja bertepi bulat, rangka besi, panel modesti (+ laci untuk Desk_03/04)
+  const model = kitModel(n === 4 ? 'desk_160x80' : n === 5 ? 'desk_180x75' : 'desk_150x75',
+    modelMaterials({ Wood: n === 1 || n === 3 ? pbr('wood', topCol) : mat(topCol, { smooth: true }), Laminate: mat('#cfcac0', { smooth: true }) }));
+  if (model) {
+    if (n === 4 || n === 3) { b(model, mat('#a59e92'), 0.42, 0.6, d - 0.14, w / 2 - 0.34, 0.06); for (let i = 0; i < 3; i++) b(model, mat('#2b2d31'), 0.12, 0.012, 0.012, w / 2 - 0.34, 0.2 + i * 0.18, d / 2 - 0.06); }
+    return model;
+  }
   b(g, top, w, 0.04, d, 0, 0.72);
   b(g, side, 0.05, 0.72, d - 0.05, -w / 2 + 0.05);
   b(g, side, 0.05, 0.72, d - 0.05, w / 2 - 0.05);
@@ -622,15 +656,20 @@ function furniture(n: string): THREE.Object3D | null {
   if (/^Desk_Standing/.test(n)) { const d = desk(2); d.scale.y = 1.45; g.add(d); return g; }
   if (/^Desk_\d/.test(n)) return desk(num);
   if (/^Table_Conference/.test(n)) {
+    const tc = kitModel('table_conference', modelMaterials({ Wood: pbr('wood', num === 2 ? '#6a4128' : '#9a6a44') }));
+    if (tc) return tc;
     const top = pbr('wood', num === 2 ? '#6a4128' : '#9a6a44');
     b(g, top, 4.4, 0.06, 1.4, 0, 0.72);
     b(g, mat('#2b2d31'), 0.5, 0.72, 0.5, -1.3);
     b(g, mat('#2b2d31'), 0.5, 0.72, 0.5, 1.3);
     return g;
   }
+  if (/^Table_Round/.test(n)) { const tr = kitModel('table_round', modelMaterials({ Wood: pbr('wood', C.wood) })); if (tr) return tr; }
   if (/^Table_Round/.test(n)) { cyl(g, pbr('wood', C.wood), 0.45, 0.04, 0, 0.72); cyl(g, mat('#2b2d31'), 0.05, 0.72); cyl(g, mat('#2b2d31'), 0.25, 0.03); return g; }
   if (/^Table_Drafting/.test(n)) { const t = b(g, mat('#e8e4da'), 1.2, 0.03, 0.8, 0, 0.9); t.rotation.x = -0.3; b(g, mat('#2b2d31'), 0.05, 0.9, 0.05); return g; }
+  if (/^Table_0/.test(n)) { const ts = kitModel('table_small', modelMaterials({ Wood: pbr('wood', C.woodLight) })); if (ts) return ts; }
   if (/^Table_0/.test(n)) { b(g, pbr('wood', C.woodLight), 1.2, 0.04, 0.75, 0, 0.72); for (const [x, z] of [[-0.55, -0.32], [0.55, -0.32], [-0.55, 0.32], [0.55, 0.32]]) b(g, mat('#2b2d31'), 0.04, 0.72, 0.04, x, 0, z); return g; }
+  if (/^CoffeeTable/.test(n)) { const ct = kitModel('table_coffee', modelMaterials({ Wood: pbr('wood', num === 2 ? '#6a4128' : C.wood) })); if (ct) return ct; }
   if (/^CoffeeTable/.test(n)) { b(g, pbr('wood', num === 2 ? '#6a4128' : C.wood), 1.1, 0.05, 0.6, 0, 0.38); b(g, mat('#1b1c20'), 1.0, 0.38, 0.5, 0, 0).scale.y = 0.38; return g; }
   if (/^Couch/.test(n)) return couch(num);
   if (/^Benchseat|^Outdoor_Seat/.test(n)) { b(g, mat(C.wood), 1.6, 0.06, 0.45, 0, 0.42); b(g, mat('#2b2d31'), 0.06, 0.42, 0.4, -0.7); b(g, mat('#2b2d31'), 0.06, 0.42, 0.4, 0.7); return g; }
@@ -757,11 +796,11 @@ const plainMats = new Map<string, THREE.MeshStandardMaterial>();
 /** Material polos dibagi per kelas: 3 kekasaran × 2 logam = maks 6 material (dulu tiap pasangan → banyak draw call). */
 function plainMaterial(m: THREE.MeshStandardMaterial) {
   const rough = m.roughness < 0.45 ? 0.35 : m.roughness < 0.75 ? 0.6 : 0.9;
-  const metal = m.metalness < 0.25 ? 0 : 0.5;
-  const key = `${rough}|${metal}`;
+  const metal = m.metalness < 0.25 ? 0 : m.metalness < 0.75 ? 0.5 : 0.9;
+  const key = `${rough}|${metal}|${m.flatShading ? 'f' : 's'}`;
   let p = plainMats.get(key);
   if (!p) {
-    p = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: rough, metalness: metal, flatShading: true });
+    p = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: rough, metalness: metal, flatShading: m.flatShading });
     plainMats.set(key, p);
   }
   return p;

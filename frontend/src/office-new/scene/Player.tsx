@@ -9,7 +9,9 @@ import { PROFILES } from '../core/agents';
 import type { Pose } from './Avatar';
 import { SyntyAvatar } from './SyntyAvatar';
 import { collide, segmentHitsBox } from '../world/nav';
-import { INTERACTABLES, WALLS, PLAYER_SPAWN, PLAYER_BOUNDS } from '../world/layout';
+import { INTERACTABLES, WALLS, PLAYER_BOUNDS } from '../world/layout';
+import { placePlayer, savePosition } from '../world/spawn';
+import { sfx } from './sfx';
 import { agentBodies, keys, look, nearby, player, touchMove, walkers } from '../world/runtime';
 import { labelPortal } from './labels';
 
@@ -44,12 +46,13 @@ export function Player() {
   const { gl, camera } = useThree();
   const hintTick = useRef(0);
   const lockRef = useRef<() => void>(() => {});
+  const saveT = useRef(0);
   const active = mode === 'life';
 
-  // Reset the player at the entrance whenever Virtual Life starts.
+  // Masuk Walk in: lanjut di posisi terakhir (juga setelah refresh), atau di pintu masuk bila belum pernah.
   useEffect(() => {
     if (!active) return;
-    Object.assign(player, { x: PLAYER_SPAWN.x, z: PLAYER_SPAWN.z, y: 0, vy: 0, yaw: PLAYER_SPAWN.rot, facing: PLAYER_SPAWN.rot, pitch: -0.12, seat: null });
+    placePlayer();
   }, [active]);
 
   // Keyboard, pointer lock and mouse look.
@@ -68,11 +71,12 @@ export function Player() {
         if (next === 'first' && CAN_LOCK && !look.locked) lockPointer();
       }
       if (k === 'e') interact();
+      // Esc hanya melepas kursor (browser) / menutup jendela yang terbuka; menu ada di tombol ☰ kanan atas.
       if (k === 'escape' && !look.locked) {
         const s = st();
         if (s.chatWith) s.openChat(null);
         else if (s.modal) s.openModal(null);
-        else s.setMenu(!s.menuOpen);
+        else if (s.menuOpen) s.setMenu(false);
       }
     };
     const up = (e: KeyboardEvent) => keys.delete(e.key.toLowerCase());
@@ -112,8 +116,8 @@ export function Player() {
     const lockChange = () => {
       const wasLocked = look.locked;
       look.locked = document.pointerLockElement === canvas;
-      const s = st();
-      if (wasLocked && !look.locked && !s.chatWith && !s.modal) s.setMenu(true);
+      // dulu: lepas kunci (Esc) = menu Paused. Sekarang cukup kursor muncul; menu lewat ☰.
+      void wasLocked;
     };
     let dragging = false;
     const mdown = (e: MouseEvent) => { if ((e.button === 0 || e.button === 2) && !(e as PointerEvent).pointerType?.startsWith('touch')) dragging = true; };
@@ -232,10 +236,15 @@ export function Player() {
 
     // Jump
     const onGround = player.y <= 0.0001;
-    if (!frozen && !player.seat && keys.has(' ') && onGround) player.vy = JUMP;
+    if (!frozen && !player.seat && keys.has(' ') && onGround) { player.vy = JUMP; sfx.jump(player.x, player.z); }
     player.vy -= GRAVITY * dt;
+    const wasAir = player.y > 0.0001, fallV = -player.vy;
     player.y = Math.max(0, player.y + player.vy * dt);
     if (player.y === 0 && player.vy < 0) player.vy = 0;
+    if (wasAir && player.y === 0) sfx.land(player.x, player.z, fallV);
+    // simpan posisi tiap ±1 dtk (refresh = lanjut di sini)
+    saveT.current += dt;
+    if (saveT.current > 1 && !player.seat) { saveT.current = 0; savePosition(); }
 
     pose.current.mode = player.seat ? 'sit' : player.y > 0.02 ? 'air' : player.moving ? (player.running ? 'run' : 'walk') : 'stand';
     pose.current.speed = player.running ? RUN : WALK;

@@ -8,7 +8,7 @@ import { AGENT_IDS } from '../core/types';
 import { PROFILES } from '../core/agents';
 import {
   FLOOR, ROOMS, WALL_RUNS, PIECE, piecePlacement, DESKS, STAFF_DESKS, MEETING_TABLE, MEETING_SEATS, GUEST_SEATS, MEETING_SCREEN,
-  WHITEBOARD, SOFA, LOUNGE_TABLE, POOL_TABLES, FOOSBALL, BEANBAGS, KITCHEN_ISLAND, RECEPTION, LOBBY_SOFA, TABLE_TENNIS, PLANTS,
+  WHITEBOARD, SOFA, LOUNGE_TABLE, KITCHEN_ISLAND, RECEPTION, LOBBY_SOFA, PLANTS,
   FLOOR_DECOR, WIDE, DOOR_OPEN, LARGE_DOOR_HALF, DESK_ROT, SOC_DESKS, roomAt, type WallStyle,
 } from '../world/layout';
 import { Bookcase, StaffDesk, Workstation } from './Furniture';
@@ -485,18 +485,10 @@ function ServerRoom() {
 }
 
 function GameRoom() {
+  // area santai: pingpong, arcade, jukebox, beanbag & konsol dihapus (2026-11-28); vending & sofa tetap
   return (
     <group>
-      <Prop name="TableTennis_01" position={[TABLE_TENNIS.x, 0, TABLE_TENNIS.z]} />
-      <Prop name="TableTennis_Paddle_01" position={[TABLE_TENNIS.x - 1.2, 0.77, TABLE_TENNIS.z + 0.4]} rotation={[-Math.PI / 2, 0, 0.6]} />
-      <Prop name="ArcadeMachine_01" position={[19.3, 0, -8.6]} rot={-Math.PI / 2} screen="Sceen_Arcade_01" />
-      <Prop name="Jukebox_01" position={[19.3, 0, -6.6]} rot={-Math.PI / 2} />
-      <Prop name="Neon_Cactus_01" position={[19.4, 1.63, -6.6]} rot={-Math.PI / 2} />
-      <Prop name="Chair_BeanBag_02" position={[13.0, 0, -12.6]} rot={0.6} />
-      <Prop name="Chair_BeanBag_04" position={[13.4, 0, -13.9]} rot={-0.3} />
       <Prop name="Couch_06" position={[17.6, 0, -14.2]} />
-      <Prop name="CoffeeTable_01" position={[15.6, 0, -13.2]} />
-      <Prop name="Console_PlayBox_01" position={[15.6, 0.42, -13.2]} />
       <Prop name="B:FeatureWall_Wood_01" position={[12.5, 0, -14.845]} />
       <Prop name="Rug_04" position={[15.6, 0.005, -13.0]} rot={Math.PI / 2} palette="02" />
       <Prop name="VendingMachine_01" position={[19.4, 0, -11.3]} rot={-Math.PI / 2} />
@@ -646,24 +638,14 @@ function Reception() {
 }
 
 function Lounge() {
+  // tanpa permainan (biliar, foosball, beanbag, arcade, konsol) — disetujui pemilik 2026-11-28: ruang lebih lapang
   return (
     <group>
-      <Prop name="Rug_01" position={[POOL_TABLES[0].x, 0.005, POOL_TABLES[0].z]} rot={Math.PI / 2} scale={[1, 1, 1.15]} palette="02" />
-      <Prop name="Rug_01" position={[POOL_TABLES[1].x, 0.005, POOL_TABLES[1].z]} rot={Math.PI / 2} scale={[1, 1, 1.15]} palette="04" />
-      <Prop name="PoolTable_01" position={[POOL_TABLES[0].x, 0, POOL_TABLES[0].z]} />
-      <Prop name="PoolTriangle_01" position={[POOL_TABLES[0].x + 0.9, 0.89, POOL_TABLES[0].z]} />
-      <Prop name="PoolCue_01" position={[POOL_TABLES[0].x - 1.2, 0.9, POOL_TABLES[0].z + 0.3]} rot={1.3} />
-      <Prop name="PoolTable_02" position={[POOL_TABLES[1].x, 0, POOL_TABLES[1].z]} />
-      <Prop name="PoolBall_01" position={[POOL_TABLES[1].x + 0.4, 0.93, POOL_TABLES[1].z - 0.2]} />
-      <Prop name="TableFootball_01" position={[FOOSBALL.x, 0, FOOSBALL.z]} rot={Math.PI / 2} />
       <Prop name="Rug_01" position={[SOFA.x, 0.005, LOUNGE_TABLE.z - 0.3]} rot={Math.PI / 2} />
       <Prop name="Couch_03" position={[SOFA.x, 0, SOFA.z]} rot={Math.PI} />
       <Prop name="CoffeeTable_02" position={[LOUNGE_TABLE.x, 0, LOUNGE_TABLE.z]} />
       <Prop name="Book_Magazine_02" position={[LOUNGE_TABLE.x - 0.2, 0.51, LOUNGE_TABLE.z]} rot={0.5} />
-      <Prop name="Console_PlayBox_01" position={[LOUNGE_TABLE.x + 0.25, 0.51, LOUNGE_TABLE.z + 0.05]} />
-      {BEANBAGS.map(([x, z, name, r], i) => <Prop key={i} name={name} position={[x, 0, z]} rot={r} />)}
       <Prop name="Fishtank_01" position={[-9.35, 0, 3.6]} rot={Math.PI / 2} />
-      <Prop name="Fan_Pedistal_01" position={[1.0, 0, 6.5]} rot={-2.4} />
       <Prop name="Sign_Director_01" position={[-6.25, 2.6, -2.36]} />
       {/* second seating corner by the fish tank */}
       <Prop name="Rug_02" position={[-8.0, 0.005, 10.4]} palette="02" />
@@ -672,7 +654,6 @@ function Lounge() {
       <Prop name="Couch_06" position={[-8.1, 0, 8.1]} />
       <Prop name="CoffeeTable_03" position={[-8.1, 0, 9.4]} />
       <Prop name="Cup_Red_01" position={[-8.0, 0.53, 9.3]} />
-      <Prop name="ArcadeMachine_01" position={[-9.33, 0, 5.2]} rot={Math.PI / 2} screen="Sceen_Arcade_01" />
       <Prop name="Shelf_06" position={[-6.0, 0, -2.28]} />
       <Prop name="Book_Group_04" position={[-5.6, 0.89, -2.28]} />
       <Prop name="Radio_02" position={[-6.4, 0.89, -2.28]} />

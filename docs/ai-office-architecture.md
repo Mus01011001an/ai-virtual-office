@@ -205,7 +205,7 @@ Ukuran per frame (tim demo, 1280×720) — segitiga adalah penyebab utama berat 
 
 ## 14. Menu Graphics (2026-11-27)
 
-⚙ → **Graphics**: `Auto` (default) · `Low` · `Medium` · `High`, disimpan per perangkat (`localStorage avo-office-new-gfx`);
+☰ → **Graphics**: `Auto` (default) · `Low` · `Medium` · `High`, disimpan per perangkat (`localStorage avo-office-new-gfx`);
 memilih level menyimpan lalu memuat ulang office (resolusi, bayangan, daftar staf dibangun saat mulai). `?lite` / `?full`
 memaksa Low / High untuk uji. Sumber: `scene/quality.ts` (`Q`), dipakai `OfficeScene`, `HqScene`, `Npcs`, `Office` (pintu).
 
@@ -274,7 +274,7 @@ tekstur & cahaya Poly Haven, karakter tidak tembus barang, efek suara tepat mome
    halus + ayunan kepala seirama langkah. Composer di-`key` per mode (melepas DOF di composer yang sama → GL
    INVALID_OPERATION, layar beku).
 3. **Poly Haven** (CC0, `public/assets`) — HDRI interior `lebombo_1k.hdr` untuk cahaya pantul; bahan `pbr()` di
-   `fallback/kit.ts`: kain `fabric_pattern_07` (sofa, kursi kantor, beanbag, panel cubicle), kulit `brown_leather`
+   `fallback/kit.ts`: kain `fabric_pattern_07` (sofa, kursi kantor, panel cubicle), kulit `brown_leather`
    (kursi rapat/tamu), kayu `wood_table_001` (meja, konter, rak, panel kayu), dinding `beige_wall_001`, plafon
    `ceiling_interior`, serat karpet `dirty_carpet` (normal/kekasaran di atas motif kita). Warna asli dinetralkan
    (`detailTexture`) lalu diwarnai palet office; UV diproyeksikan per meter (`boxUV`) agar tidak melar. Grafis Low:
@@ -286,7 +286,7 @@ tekstur & cahaya Poly Haven, karakter tidak tembus barang, efek suara tepat mome
 5. **Suara** (`scene/sfx.ts`, Web Audio sintetis, tanpa file) — langkah tepat saat kaki menapak di rekaman (bunyi
    karpet/kayu/ubin/luar sesuai lantai), ketikan keyboard, kursi diduduki, denting cangkir saat minum, pintu buka/tutup,
    bunyi tugas selesai & pesan tim. Volume menurun dengan jarak ke kamera (senyap > 14 m), kiri/kanan sesuai arah
-   pandang. ⚙ → *Sound effects* (disimpan per perangkat, aktif setelah klik/ketik pertama).
+   pandang. ☰ → *Sound effects* (disimpan per perangkat, aktif setelah klik/ketik pertama).
 
 ## 18. Dua arah: office → Claude Code (2026-11-28)
 
@@ -322,5 +322,53 @@ workspace 2.509 → 76, dapur 1.478 → 9, lounge 937 → 96, security 370 → 7
 374 → 258; versi pertama Office Baru ±1.083; video referensi 174). Caranya: warna bahan Poly Haven pindah ke vertex
 color → satu material per jenis bahan (`pbrSharedFor`), material polos 6 kelas (3 kekasaran × 2 logam), sel
 `StaticBatch` 20 → 30 m. Sisa yang memang terpisah: ±46 karakter (1 draw call/orang), daun pintu beranimasi, layar.
-⚙ → **Show FPS & draw calls** menampilkan `FPS · draw calls · tris` di pojok kanan bawah (`scene/perf.ts`,
+☰ → **Show FPS & draw calls** menampilkan `FPS · draw calls · tris` di pojok kanan bawah (`scene/perf.ts`,
 `OfficeScene` `PerfMeter`, `ui/PerfBadge.tsx`).
+
+## 20. Ruang lega, menu ☰, cuaca & furnitur Blender (2026-11-28)
+
+**Esc & menu ☰** — Esc hanya melepas kursor (dan menutup chat/panel/menu yang terbuka); tidak ada lagi layar "Paused"
+(`PauseMenu` di `ui/LifeHud.tsx` dihapus). Semua pengaturan ada di tombol ☰ kanan atas (`ui/TopBar.tsx` `MainMenu` →
+`MenuBody`): Resume, Respawn, 1st/3rd person, Overview (saat Walk in), Weather & time, office/sign out, Graphics,
+kecepatan demo, Claude Code, camera shots (Overview), Sound effects, Show FPS, baca jawaban. Membuka ☰ melepas kursor.
+
+**Spawn di posisi terakhir** — `world/spawn.ts`: posisi pemain disimpan ±1 dtk sekali (tidak saat duduk) di
+`localStorage avo-office-new-pos`, mode Overview/Walk in di `avo-office-new-mode`. Refresh → langsung Walk in di posisi
+itu; posisi di luar `PLAYER_BOUNDS` diabaikan (kembali ke pintu masuk). ☰ → **Respawn** = kembali ke pintu masuk.
+
+**Cuaca & waktu** — ☰ → *Weather & time*: Morning · Noon · Afternoon · Night (default) + Rain, disimpan
+`avo-office-new-weather` (`scene/weather.ts`). `skyFor()` mengatur warna langit & kabut, hemisphere, posisi/warna/kekuatan
+matahari dan intensitas HDRI di luar gedung; bayangan statis dihitung ulang saat waktu berubah (`StaticShadows version`).
+Hujan: `scene/Rain.tsx` (InstancedMesh 500/900/1.400 garis hujan sesuai Graphics, hanya di luar gedung) + `sfx.setRain()`
+— desis hujan lembut (noise lowpass) + tetesan acak, teredam saat pemain di dalam gedung; langkah di luar terdengar basah.
+
+**Suara** — langkah pemain di orang pertama dulu senyap (avatar disembunyikan → animasi & injakan dilewati, sehingga
+langkah baru terdengar dari NPC di dalam kantor); kini `BlockyAvatar` `stepsOnly()` tetap menghitung injakan saat
+avatar tak terlihat. Baru: `sfx.jump()` saat loncat, `sfx.land()` saat mendarat (keras sesuai kecepatan jatuh).
+
+**Ruang lega (dihapus)**
+| Apa | Detail | File |
+|---|---|---|
+| ±40 NPC (staf jalan-jalan, main game, ngobrol) | tersisa resepsionis (menyapa tamu) + 5 agen AI + pemain | `scene/Npcs.tsx` |
+| Mainan lounge | meja biliar (bola, stik, segitiga, lampu gantungnya), foosball, konsol, beanbag, kipas berdiri, arcade, tenis meja, jukebox, kaktus neon | `scene/Office.tsx`, `scene/Fitout.tsx` |
+| Isi game room | meja kopi + konsol | `scene/Office.tsx` (`GameRoom`) |
+| Pernak-pernik kecil Synty | mainan meja, figur, pesawat, puzzle cube, balon, bunting/streamer, topi pesta, minigolf, swiss ball, air horn, dekor Natal | `scene/assets.tsx` (`REMOVED`) |
+| Area tabrak barang di atas | dihapus bersama bendanya | `world/layout.ts` (`OBSTACLES`) |
+
+**Furnitur Blender** — kursi & meja tidak lagi kotak: `tools/office-new/blender/furniture.py` (Blender 5.x headless;
+bevel + weighted normal, sudut membulat, sandaran melengkung, kaki bintang beroda) →
+`frontend/public/office-new/kit/furniture.glb` (±413 KB, 10 model: `chair_office`, `chair_exec`, `chair_meeting`,
+`desk_150x75`, `desk_160x80`, `desk_180x75`, `table_conference`, `table_small`, `table_round`, `table_coffee`). Build ulang:
+
+```
+/Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup --python tools/office-new/blender/furniture.py -- frontend/public/office-new/kit/furniture.glb
+```
+
+`scene/fallback/kitModels.ts` memuat glb saat boot (`main.tsx`, bersama `probeAssets`); `kitModel(name, materials)`
+mengganti material Blender (Fabric/Leather/Wood/Laminate/Chrome/Plastic/Metal) dengan material kit (Poly Haven di
+Medium/High, polos di Low) sehingga tetap ikut `StaticBatch`. Dipakai `fallback/kit.ts`: `chair()`, kursi eksekutif,
+`desk()` (+ laci untuk meja 3/4), `Table_Conference`, `Table_Round`, `Table_0`, `CoffeeTable`.
+
+**Hasil uji** (lokal :5173, demo): kursi/meja Blender tampil di cubicle & ruang rapat (kursi menghadap meja); draw call
+Walk in ±243 (ruang rapat 65); karakter ±46 → 7; ☰ (Resume/Respawn/cuaca) jalan; pagi/siang/sore/malam + hujan tampil;
+refresh → posisi terakhir; langkah orang pertama, loncat & mendarat berbunyi; Low (`?lite`) tanpa error.
