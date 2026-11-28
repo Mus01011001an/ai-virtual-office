@@ -9,6 +9,7 @@ import { SHOTS } from '../scene/shots';
 import { AGENT_IDS } from '../core/types';
 import { Icon } from './common';
 import { AUTO_LEVEL, GFX_CHOICE, setGfx, type GfxChoice } from '../scene/quality';
+import { sfx } from '../scene/sfx';
 
 async function signOut() {
   try { await api('POST', '/auth/signout'); } catch { /* token mungkin sudah tidak valid */ }
@@ -39,9 +40,9 @@ function Menu({ button, children, width = 'w-56', title }: { button: ReactNode; 
 
 const GFX_OPTIONS: { id: GfxChoice; label: string; hint: string }[] = [
   { id: 'auto', label: 'Auto', hint: 'Picks for this device' },
-  { id: 'low', label: 'Low', hint: 'Smooth on iPad & phones: 1× resolution, 4 lights, no glow, fewer staff' },
-  { id: 'medium', label: 'Medium', hint: 'Balanced: 1.25× resolution, 6 lights, glow, all staff' },
-  { id: 'high', label: 'High', hint: 'Best look: 1.5× resolution, all 10 lights, glow, anti-aliasing, sharp shadows' },
+  { id: 'low', label: 'Low', hint: 'Smooth on iPad & phones: 1× resolution, 4 lights, flat colours, no glow or lens blur, fewer staff' },
+  { id: 'medium', label: 'Medium', hint: 'Balanced: 1.25× resolution, 6 lights, real textures, glow, lens blur, all staff' },
+  { id: 'high', label: 'High', hint: 'Best look: 1.5× resolution, all 10 lights, real textures, glow, lens blur, anti-aliasing, sharp shadows' },
 ];
 
 /** Kualitas grafis: Auto (default) / Low / Medium / High. Menyimpan pilihan lalu memuat ulang office. */
@@ -63,6 +64,17 @@ function GraphicsSetting() {
       </div>
       <div className="mt-1 text-[10.5px] leading-snug text-muted">{GFX_CHOICE === 'auto' ? GFX_OPTIONS.find((o) => o.id === AUTO_LEVEL)!.hint : cur.hint}</div>
     </div>
+  );
+}
+
+/** Efek suara (langkah, ketikan, pintu, notifikasi) — disimpan per perangkat. */
+function SoundToggle() {
+  const [on, setOn] = useState(sfx.enabled);
+  return (
+    <label className="flex cursor-pointer items-center justify-between py-1">
+      <span>Sound effects</span>
+      <input type="checkbox" checked={on} onChange={(e) => { sfx.setEnabled(e.target.checked); setOn(e.target.checked); }} />
+    </label>
   );
 }
 
@@ -97,6 +109,7 @@ function Settings() {
               ))}
             </details>
           )}
+          <SoundToggle />
           <label className="flex cursor-pointer items-center justify-between py-1">
             <span>Read replies aloud</span>
             <input type="checkbox" checked={s.voiceOn} onChange={(e) => s.setVoice(e.target.checked)} />

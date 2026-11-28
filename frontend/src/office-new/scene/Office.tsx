@@ -20,6 +20,7 @@ import { BEACONS, TV_Z, VIDEO_WALL } from './socScreens';
 import { Prop, type Palette } from './assets';
 import { asset } from './assetMode';
 import { fitDecorToKit } from './fallback/fitDecor';
+import { sfx } from './sfx';
 import { useCanvasTexture, roundRect, fitText, FONT, MONO } from './canvasTexture';
 import { agentBodies, player, shotCamera, walkers } from '../world/runtime';
 
@@ -129,8 +130,11 @@ function Door({ p }: { p: Piece }) {
       half: door.half,
     };
   }, [p, door]);
+  const wasOpen = useRef(false);
   useFrame((_, dt) => {
     const open = wantsThrough(frame.center, frame.along, frame.half);
+    // bunyi pintu tepat saat mulai membuka / menutup
+    if (open !== wasOpen.current) { wasOpen.current = open; sfx.door(frame.center.x, frame.center.z, open); }
     angle.current = THREE.MathUtils.damp(angle.current, open ? 1.45 : 0, 5, Math.min(dt, 0.05));
     door.leaves.forEach((l, i) => { const g = hinges.current[i]; if (g) g.rotation.y = l.swing * angle.current; });
   });

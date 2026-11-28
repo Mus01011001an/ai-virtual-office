@@ -6,6 +6,7 @@ import { AGENT_IDS } from '../core/types';
 import { Icon, Section, clock, speakerColor, speakerName } from './common';
 import { AgentActivity, RecentLog, Stats, TaskInput, Timeline } from './Dashboard';
 import { CommsFeed } from './CommsPanel';
+import { sfx } from '../scene/sfx';
 
 const ITEMS: { id: DockPanel; icon: string; label: string; key: string }[] = [
   { id: 'task', icon: 'plus', label: 'New task', key: 'N' },
@@ -57,6 +58,7 @@ function CommsToast() {
   useEffect(() => {
     if (!last) return;
     if (first.current) { first.current = false; return; }
+    sfx.chime('message');
     setShown(last.id);
     const t = setTimeout(() => setShown(null), 4000);
     return () => clearTimeout(t);
@@ -73,7 +75,18 @@ function CommsToast() {
   );
 }
 
+/** Bunyi "selesai" tepat saat sebuah tugas tuntas. */
+function useDoneChime() {
+  const done = useOffice((s) => Object.values(s.tasks).filter((t) => t.status === 'completed').length);
+  const prev = useRef<number | null>(null);
+  useEffect(() => {
+    if (prev.current !== null && done > prev.current) sfx.chime('done');
+    prev.current = done;
+  }, [done]);
+}
+
 export function Dock() {
+  useDoneChime();
   const panel = useOffice((s) => s.panel);
   const setPanel = useOffice((s) => s.setPanel);
   const badges = useBadges();

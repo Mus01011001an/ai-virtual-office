@@ -12,6 +12,8 @@ setBlockyLowDetail();
 import { poseAt, type Pose as JointPose, type PoseName } from '../../characters/poses';
 import type { Appearance } from '../../state/types';
 import type { Pose } from './Avatar';
+import { CLIPS, MOCAP_BONES, NATURAL_SPEED, sampleClip, type ClipName } from './mocap/mocap';
+import { sfx } from './sfx';
 
 // tulang: indeks = urutan di array
 const BONES = ['hips', 'spine', 'head', 'lS', 'lE', 'rS', 'rE', 'lH', 'lK', 'rH', 'rK'] as const;
@@ -96,15 +98,36 @@ function poseName(p: Pose): PoseName {
 
 export const hashSeed = (s: string) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
 
+/** Klip mocap untuk pose ini, atau null (pose prosedural: duduk, mengetik, bicara, gestur). */
+function clipFor(p: Pose): ClipName | null {
+  if (p.mode === 'walk') return (p.speed ?? 0) > 2.8 ? 'run' : 'walk';
+  if (p.mode === 'run') return 'run';
+  if (p.mode === 'stand' && !p.talking && !p.gesture) return 'idle';
+  return null;
+}
+
+const tmpE = new THREE.Euler();
+const tmpQ = new THREE.Quaternion();
+const IDENT = new THREE.Quaternion();
+const wp = new THREE.Vector3();
+
 export function BlockyAvatar({ appearance, pose, seed, visible = true }: { appearance: Appearance; pose: MutableRefObject<Pose>; seed: number; visible?: boolean }) {
   const rig = useMemo(() => makeRig(skinnedGeometry(appearance)), [appearance]);
   const cur = useRef<JointPose | null>(null);
   const target = useMemo(() => ({}) as JointPose, []);
+  // mocap: bobot campuran (0 = rumus, 1 = rekaman gerak), fase tiap klip, keluaran per tulang
+  const mo = useMemo(() => ({
+    w: 0, clip: null as ClipName | null, phase: (seed % 17) / 17, out: MOCAP_BONES.map(() => new THREE.Quaternion()),
+    lastPhase: 0, typeT: 0, lastName: '' as PoseName | '', lastGesture: null as Pose['gesture'],
+  }), [seed]);
+  const bones = useMemo(() => MOCAP_BONES.map((n) => rig.bones[n as BoneName]), [rig]);
+
   useFrame((state, dtRaw) => {
     if (!visible) return;
     const dt = Math.min(dtRaw, 0.05);
     const t = state.clock.elapsedTime;
-    const name = poseName(pose.current);
+    const p = pose.current;
+    const name = poseName(p);
     poseAt(name, t, seed, target);
     if (!cur.current) cur.current = { ...target };
     const c = cur.current;
@@ -112,14 +135,56 @@ export function BlockyAvatar({ appearance, pose, seed, visible = true }: { appea
     for (const key in target) { const kk = key as keyof JointPose; c[kk] = damp(c[kk], target[kk], k, dt); }
     const b = rig.bones;
     const breath = 1 + Math.sin(t * 1.7 + seed) * 0.006;
-    b.hips.position.y = c.y;
-    b.spine.rotation.x = c.spineX;
+
+    // --- procedural pose (rumus) as quaternions
+    const proc = (bone: THREE.Bone, x: number, y: number, z: number) => bone.quaternion.setFromEuler(tmpE.set(x, y, z));
+    b.hips.quaternion.identity();
+    proc(b.spine, c.spineX, 0, 0);
+    proc(b.head, c.headX, c.headY, Math.sin(t * 0.9 + seed) * 0.015);
+    proc(b.lS, c.lSx, 0, c.lSz); proc(b.rS, c.rSx, 0, c.rSz);
+    proc(b.lE, c.lEx, 0, 0); proc(b.rE, c.rEx, 0, 0);
+    proc(b.lH, c.lHx, 0, 0); proc(b.rH, c.rHx, 0, 0);
+    proc(b.lK, c.lKx, 0, 0); proc(b.rK, c.rKx, 0, 0);
     b.spine.scale.set(1, breath, 1);
-    b.head.rotation.set(c.headX, c.headY, Math.sin(t * 0.9 + seed) * 0.015);
-    b.lS.rotation.set(c.lSx, 0, c.lSz); b.rS.rotation.set(c.rSx, 0, c.rSz);
-    b.lE.rotation.x = c.lEx; b.rE.rotation.x = c.rEx;
-    b.lH.rotation.x = c.lHx; b.rH.rotation.x = c.rHx;
-    b.lK.rotation.x = c.lKx; b.rK.rotation.x = c.rKx;
+    let hipY = c.y;
+
+    // --- motion capture (Mixamo), blended in/out so switching pose never pops
+    const want = clipFor(p);
+    const clip = want ? CLIPS[want] : undefined;
+    if (clip && want !== mo.clip) { mo.clip = want; }
+    mo.w = damp(mo.w, clip ? 1 : 0, 7, dt);
+    const active = mo.clip ? CLIPS[mo.clip] : undefined;
+    if (active && mo.w > 0.001) {
+      const natural = NATURAL_SPEED[mo.clip!];
+      const rate = natural > 0 ? THREE.MathUtils.clamp((p.speed ?? natural) / natural, 0.55, 2.6) : 1;
+      mo.lastPhase = mo.phase;
+      mo.phase = (mo.phase + (dt * rate) / active.duration) % 1;
+      const dy = sampleClip(active, mo.phase, mo.out);
+      for (let i = 0; i < bones.length; i++) {
+        const bone = bones[i];
+        tmpQ.copy(bone === b.hips ? IDENT : bone.quaternion);
+        bone.quaternion.slerpQuaternions(tmpQ, mo.out[i], mo.w);
+      }
+      hipY = c.y + (0.64 + dy - c.y) * mo.w;
+      // footsteps exactly when a foot lands in the recording
+      if (mo.w > 0.5 && active.steps.length) {
+        const a = mo.lastPhase, z = mo.phase;
+        for (const s of active.steps) {
+          if (a <= z ? s > a && s <= z : s > a || s <= z) { rig.mesh.getWorldPosition(wp); sfx.footstep(wp.x, wp.z, mo.clip === 'run'); }
+        }
+      }
+    }
+    b.hips.position.y = hipY;
+
+    // --- other sounds tied to the moment they happen
+    if (name === 'type' || name === 'typeFast') {
+      mo.typeT -= dt;
+      if (mo.typeT <= 0) { mo.typeT = 0.07 + Math.random() * (name === 'typeFast' ? 0.12 : 0.28); rig.mesh.getWorldPosition(wp); sfx.key(wp.x, wp.z); }
+    }
+    if (mo.lastName && mo.lastName !== name && (name === 'sitIdle' || name === 'sitTalk' || name === 'type') && !/^sit|^type/.test(mo.lastName)) { rig.mesh.getWorldPosition(wp); sfx.chair(wp.x, wp.z); }
+    if (p.gesture === 'drink' && mo.lastGesture !== 'drink') { rig.mesh.getWorldPosition(wp); sfx.cup(wp.x, wp.z); }
+    mo.lastName = name;
+    mo.lastGesture = p.gesture ?? null;
   });
   return <primitive object={rig.mesh} visible={visible} />;
 }

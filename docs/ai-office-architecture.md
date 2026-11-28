@@ -257,3 +257,33 @@ Uji jalan lurus melewati 18 pintu (`nav.collide`, radius 0,3) — semua lolos.
 
 Karakter tetap blocky ala Roblox (permintaan pemilik). Tech stack sama dengan referensi (React Three Fiber + three);
 pembeda terbesar yang tersisa = aset Synty POLYGON Office (berbayar, drop-in §5).
+
+## 17. Lima hal dari reel "animasi 3D bikinan Claude" (2026-11-28)
+
+Reel (Instagram @jipraks, 48 dtk) menunjukkan 5 perubahan: gerak motion capture Mixamo, kamera seperti lensa asli,
+tekstur & cahaya Poly Haven, karakter tidak tembus barang, efek suara tepat momennya. Semua diterapkan:
+
+1. **Gerak Mixamo** — `tools/office-new/mocap/build-mocap.mjs <glb Mixamo>` me-retarget klip `idle/walk/run` ke 11 tulang
+   rig blocky (rotasi global sumber × koreksi arah istirahat; lengan T-pose → lengan turun) →
+   `scene/mocap/clips.json` (38 KB, 30 fps, plus fase injakan kaki). Sumber: `Xbot.glb` repo three.js r170 (rekaman
+   Mixamo; glb tidak di-commit). `BlockyAvatar` memadukan klip (bobot teredam, tanpa loncatan) untuk jalan/lari/diam;
+   duduk, mengetik, bicara, gestur tetap prosedural. Klip diputar secepat gerak sebenarnya (`Pose.speed`:
+   NPC 1,25, agen 1,5×speed, pemain 2,2/5,0 m/s) agar kaki tidak meluncur.
+2. **Lensa asli** (`scene/lens.ts`) — depth of field di Walk in & rekaman kamera (Medium/High): fokus ke pemain (orang
+   ketiga) atau autofokus ke benda di tengah layar (orang pertama, uji sinar ke kotak tabrak + orang); goyang tangan
+   halus + ayunan kepala seirama langkah. Composer di-`key` per mode (melepas DOF di composer yang sama → GL
+   INVALID_OPERATION, layar beku).
+3. **Poly Haven** (CC0, `public/assets`) — HDRI interior `lebombo_1k.hdr` untuk cahaya pantul; bahan `pbr()` di
+   `fallback/kit.ts`: kain `fabric_pattern_07` (sofa, kursi kantor, beanbag, panel cubicle), kulit `brown_leather`
+   (kursi rapat/tamu), kayu `wood_table_001` (meja, konter, rak, panel kayu), dinding `beige_wall_001`, plafon
+   `ceiling_interior`, serat karpet `dirty_carpet` (normal/kekasaran di atas motif kita). Warna asli dinetralkan
+   (`detailTexture`) lalu diwarnai palet office; UV diproyeksikan per meter (`boxUV`) agar tidak melar. Grafis Low:
+   warna polos (hemat memori iPad).
+4. **Tidak tembus** — `world/solids.ts`: prop lantai (kursi, tanaman, kardus, troli, tong, meja kecil, …) didaftarkan
+   saat tampil → `OBSTACLES` (pemain) + sel grid A* (`nav.blockBox`). Orang juga padat: pemain terdorong keluar dari
+   agen/staf; staf & agen berhenti saat ada orang di depan (`runtime.personAhead`), lalu memutar ke kanan setelah
+   ±1 dtk.
+5. **Suara** (`scene/sfx.ts`, Web Audio sintetis, tanpa file) — langkah tepat saat kaki menapak di rekaman (bunyi
+   karpet/kayu/ubin/luar sesuai lantai), ketikan keyboard, kursi diduduki, denting cangkir saat minum, pintu buka/tutup,
+   bunyi tugas selesai & pesan tim. Volume menurun dengan jarak ke kamera (senyap > 14 m), kiri/kanan sesuai arah
+   pandang. ⚙ → *Sound effects* (disimpan per perangkat, aktif setelah klik/ketik pertama).

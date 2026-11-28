@@ -7,8 +7,8 @@ import { SyntyAvatar, type Wearable } from './SyntyAvatar';
 import type { Gesture, Pose, PoseMode } from './Avatar';
 import type { Palette } from './assets';
 import { STAFF_DESKS, RECEPTIONIST, LOBBY_SOFA, KITCHEN_ISLAND, POOL_TABLES, FOOSBALL, SOFA, BEANBAGS, TABLE_TENNIS, SOC_DESKS, type Spot } from '../world/layout';
-import { findPath, type P } from '../world/nav';
-import { player, walkers } from '../world/runtime';
+import { collide, findPath, type P } from '../world/nav';
+import { personAhead, player, walkers } from '../world/runtime';
 import { Q } from './quality';
 import { Html } from '@react-three/drei';
 import { useOffice } from '../store/useOffice';
@@ -157,7 +157,7 @@ function Greeting({ text, at, pose }: { text: string; at: Spot; pose: { current:
 function WalkingNpc({ npc }: { npc: Walker }) {
   const group = useRef<THREE.Group>(null!);
   const pose = useRef<Pose>({ mode: 'stand', talking: false, gesture: null });
-  const st = useRef({ x: npc.stops[0].at.x, z: npc.stops[0].at.z, rot: npc.stops[0].at.rot, leg: 0, path: [] as P[], wait: npc.stops[0].wait });
+  const st = useRef({ x: npc.stops[0].at.x, z: npc.stops[0].at.z, rot: npc.stops[0].at.rot, leg: 0, path: [] as P[], wait: npc.stops[0].wait, blockedT: 0 });
   useEffect(() => {
     group.current.position.set(st.current.x, 0, st.current.z);
     const me = st.current;
@@ -178,17 +178,29 @@ function WalkingNpc({ npc }: { npc: Walker }) {
       }
     } else if (s.path.length) {
       const next = s.path[0];
-      const dx = next.x - s.x, dz = next.z - s.z, dist = Math.hypot(dx, dz), step = 1.25 * dt;
-      if (dist <= step) {
+      const dx = next.x - s.x, dz = next.z - s.z, dist = Math.hypot(dx, dz);
+      let ux = dx / (dist || 1), uz = dz / (dist || 1);
+      let step = 1.25 * dt;
+      // someone right in front: stop and let them pass; if they stay, step around them to the right
+      const other = personAhead(s, s.x, s.z, dx, dz);
+      let around = false;
+      if (other) {
+        s.blockedT += dt;
+        if (s.blockedT < 1.2) step = 0;
+        else { around = true; const rx = -uz, rz = ux; ux += rx * 0.9; uz += rz * 0.9; const l = Math.hypot(ux, uz); ux /= l; uz /= l; }
+      } else s.blockedT = 0;
+      if (step === 0) {
+        pose.current = { mode: 'stand', talking: false, gesture: null };
+      } else if (!around && dist <= step) {
         s.x = next.x; s.z = next.z;
         s.path.shift();
         if (!s.path.length) s.wait = npc.stops[s.leg].wait;
       } else {
-        s.x += (dx / dist) * step;
-        s.z += (dz / dist) * step;
-        s.rot = angleLerp(s.rot, Math.atan2(dx, dz), 1 - Math.exp(-dt * 10));
+        const p = around ? collide(s.x + ux * step, s.z + uz * step, 0.25) : { x: s.x + ux * step, z: s.z + uz * step };
+        s.x = p.x; s.z = p.z;
+        s.rot = angleLerp(s.rot, Math.atan2(ux, uz), 1 - Math.exp(-dt * 10));
       }
-      pose.current = { mode: 'walk', talking: false, gesture: null };
+      if (step > 0) pose.current = { mode: 'walk', talking: false, gesture: null, speed: 1.25 };
     } else {
       s.wait = npc.stops[s.leg].wait;
     }

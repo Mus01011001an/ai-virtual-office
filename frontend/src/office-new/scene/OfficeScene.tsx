@@ -1,8 +1,8 @@
 import { Suspense, useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Environment, Lightformer } from '@react-three/drei';
-import { EffectComposer, Bloom, Vignette, ToneMapping, HueSaturation, BrightnessContrast } from '@react-three/postprocessing';
-import { ToneMappingMode } from 'postprocessing';
+import { Environment } from '@react-three/drei';
+import { EffectComposer, Bloom, Vignette, ToneMapping, HueSaturation, BrightnessContrast, DepthOfField } from '@react-three/postprocessing';
+import { ToneMappingMode, type DepthOfFieldEffect } from 'postprocessing';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { useOffice } from '../store/useOffice';
@@ -20,6 +20,8 @@ import { Roof } from './Roof';
 import { OCC, patchScene } from './occlusion';
 import { player } from '../world/runtime';
 import { LIGHT_POOL, Q } from './quality';
+import { FOCUS } from './lens';
+import { sfx } from './sfx';
 
 /** Warm room lights, like ceiling lamps: [x, z, intensity, distance]. */
 // Few, wide lights: every point light costs something on every pixel.
@@ -99,11 +101,31 @@ function Occlusion() {
   return null;
 }
 
+/** Telinga = kamera: posisi & arah pandang untuk volume dan kiri/kanan efek suara. */
+function SfxListener() {
+  const camera = useThree((s) => s.camera);
+  const d = useMemo(() => new THREE.Vector3(), []);
+  useFrame(() => {
+    camera.getWorldDirection(d);
+    sfx.setListener(camera.position.x, camera.position.y, camera.position.z, d.x, d.z);
+  });
+  return null;
+}
+
+/** Lensa: fokus otomatis ke titik dari CameraDirector (pemain / ±3 m di depan / sasaran shot). */
+function LensFocus({ dof }: { dof: React.RefObject<DepthOfFieldEffect | null> }) {
+  useFrame(() => { dof.current?.target?.copy(FOCUS); });
+  return null;
+}
+
 export function OfficeScene() {
   const select = useOffice((s) => s.select);
   const mode = useOffice((s) => s.mode);
   const inside = useOffice((s) => insideLight(s.mode, s.shot));
   const roofOn = useOffice((s) => insideView(s.mode, s.shot));
+  // real lens (depth of field) only where it reads as a camera: Walk in and recorded shots, Medium/High graphics
+  const lensOn = useOffice((s) => Q.dof && (s.mode === 'life' || !!s.shot));
+  const dof = useRef<DepthOfFieldEffect | null>(null);
   return (
     <Canvas
       shadows={{ type: THREE.PCFSoftShadowMap }}
@@ -150,11 +172,8 @@ export function OfficeScene() {
         ))
         : <NearestLights inside={inside} />}
 
-      <Environment resolution={256} frames={1}>
-        <Lightformer form="rect" intensity={0.7} color="#ffd9b0" position={[0, 6, 0]} rotation-x={Math.PI / 2} scale={[20, 10, 1]} />
-        <Lightformer form="rect" intensity={0.4} color="#ffb47a" position={[-12, 3, 0]} rotation-y={Math.PI / 2} scale={[10, 4, 1]} />
-        <Lightformer form="rect" intensity={0.3} color="#7f95d6" position={[12, 3, 0]} rotation-y={-Math.PI / 2} scale={[10, 4, 1]} />
-      </Environment>
+      {/* cahaya pantul asli: HDRI interior Poly Haven "lebombo" (CC0) — pantulan & isian lembut di semua bahan */}
+      <Suspense fallback={null}><Environment files="/assets/hdri/lebombo_1k.hdr" environmentIntensity={inside ? 0.55 : 0.4} /></Suspense>
 
       <Office />
       <Suspense fallback={null}>
@@ -167,8 +186,12 @@ export function OfficeScene() {
       {PERF_SHOT && <PerfProbe />}
 
       <StaticShadows />
-      <EffectComposer multisampling={Q.msaa}>
+      <SfxListener />
+      {lensOn && <LensFocus dof={dof} />}
+      {/* key: menambah/melepas DepthOfField di composer yang sama membuat render gagal (GL INVALID_OPERATION) → bangun ulang */}
+      <EffectComposer key={lensOn ? 'lens' : 'flat'} multisampling={Q.msaa}>
         {/* AO: N8AO crash di three r187, SSAO berbintik → diganti bayangan kontak (fallback/kit.ts, CharacterShadows) */}
+        {lensOn ? <DepthOfField ref={dof} target={FOCUS} worldFocusRange={3.2} bokehScale={2} resolutionScale={0.5} /> : <></>}
         {Q.bloom ? <Bloom intensity={0.35} luminanceThreshold={0.82} luminanceSmoothing={0.2} mipmapBlur /> : <></>}
         {/* inside: a muted, contrasty grade (the reference video), outside the brighter overview look */}
         <HueSaturation saturation={inside ? -0.14 : -0.04} />

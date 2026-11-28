@@ -169,3 +169,34 @@ export function pbrTexture(file: string, srgb: boolean) {
   }
   return t;
 }
+
+/**
+ * Peta warna Poly Haven yang dinetralkan ke abu-abu terang (pola/serat tetap, warna dibuang) supaya bisa diwarnai
+ * bebas lewat material.color — kayu/kulit/dinding mengikuti palet office, tapi bertekstur asli.
+ */
+export function detailTexture(file: string) {
+  const key = `detail:${file}`;
+  let t = pbr.get(key);
+  if (!t) {
+    const tex = new THREE.Texture();
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.anisotropy = 8;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    new THREE.ImageLoader().load(`/assets/textures/${file}`, (img) => {
+      const c = document.createElement('canvas');
+      c.width = img.width; c.height = img.height;
+      const g = c.getContext('2d')!;
+      g.drawImage(img, 0, 0);
+      const d = g.getImageData(0, 0, c.width, c.height), px = d.data;
+      let sum = 0;
+      for (let i = 0; i < px.length; i += 4) sum += 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
+      const k = 232 / (sum / (px.length / 4) || 1);
+      for (let i = 0; i < px.length; i += 4) px[i] = px[i + 1] = px[i + 2] = Math.min(255, (0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]) * k);
+      g.putImageData(d, 0, 0);
+      tex.image = c;
+      tex.needsUpdate = true;
+    });
+    pbr.set(key, (t = tex));
+  }
+  return t;
+}

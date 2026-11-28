@@ -6,7 +6,8 @@ import * as THREE from 'three';
 export type PoseMode = 'stand' | 'walk' | 'sit' | 'type' | 'run' | 'air';
 /** Optional one-off gesture on top of the pose (used by the Mixamo clips when available). */
 export type Gesture = 'drink' | 'wave' | 'clap' | null;
-export interface Pose { mode: PoseMode; talking: boolean; gesture?: Gesture; }
+/** `speed` (m/s, opsional): kecepatan jalan sebenarnya → klip mocap diputar secepat itu agar kaki tidak meluncur. */
+export interface Pose { mode: PoseMode; talking: boolean; gesture?: Gesture; speed?: number; }
 
 interface Props {
   shirt: string;

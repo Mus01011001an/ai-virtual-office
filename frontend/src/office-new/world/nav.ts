@@ -15,6 +15,16 @@ for (let r = 0; r < ROWS; r++) {
   }
 }
 
+/** Tandai sel grid yang tertutup kotak baru (prop yang baru tampil) — jalur berikutnya memutarinya. */
+export function blockBox(b: Box) {
+  const c0 = Math.max(0, Math.floor((b.minX - AGENT_R - FLOOR.minX) / CELL)), c1 = Math.min(COLS - 1, Math.floor((b.maxX + AGENT_R - FLOOR.minX) / CELL));
+  const r0 = Math.max(0, Math.floor((b.minZ - AGENT_R - FLOOR.minZ) / CELL)), r1 = Math.min(ROWS - 1, Math.floor((b.maxZ + AGENT_R - FLOOR.minZ) / CELL));
+  for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
+    const x = FLOOR.minX + (c + 0.5) * CELL, z = FLOOR.minZ + (r + 0.5) * CELL;
+    if (x > b.minX - AGENT_R && x < b.maxX + AGENT_R && z > b.minZ - AGENT_R && z < b.maxZ + AGENT_R) blocked[r * COLS + c] = 1;
+  }
+}
+
 const cellOf = (x: number, z: number) => [Math.min(COLS - 1, Math.max(0, Math.floor((x - FLOOR.minX) / CELL))), Math.min(ROWS - 1, Math.max(0, Math.floor((z - FLOOR.minZ) / CELL)))] as const;
 const center = (c: number, r: number) => ({ x: FLOOR.minX + (c + 0.5) * CELL, z: FLOOR.minZ + (r + 0.5) * CELL });
 const free = (c: number, r: number) => c >= 0 && r >= 0 && c < COLS && r < ROWS && !blocked[r * COLS + c];

@@ -10,16 +10,27 @@ import type { Pose } from './Avatar';
 import { SyntyAvatar } from './SyntyAvatar';
 import { collide, segmentHitsBox } from '../world/nav';
 import { INTERACTABLES, WALLS, PLAYER_SPAWN, PLAYER_BOUNDS } from '../world/layout';
-import { agentBodies, keys, look, nearby, player, touchMove } from '../world/runtime';
+import { agentBodies, keys, look, nearby, player, touchMove, walkers } from '../world/runtime';
 import { labelPortal } from './labels';
 
-const WALK = 3.2, RUN = 6.2, JUMP = 4.6, GRAVITY = 13, RADIUS = 0.32;
+// 2026-11-28: jalan 2,2 / lari 5 m/s — langkah klip Mixamo cocok dengan kecepatan (dulu 3,2 / 6,2: kaki meluncur)
+const WALK = 2.2, RUN = 5.0, JUMP = 4.6, GRAVITY = 13, RADIUS = 0.32;
 const camWalls = WALLS.filter((w) => w.kind !== 'low').map((w) => w.box);
 /** Safari iPad/iPhone tidak punya Pointer Lock API (WebKit bug 216621): pakai kemudi mouse + sentuh. */
 export const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 export const CAN_LOCK = !IS_IOS && typeof HTMLElement !== 'undefined' && 'requestPointerLock' in HTMLElement.prototype;
 look.steer = !CAN_LOCK;
-const move = (x: number, z: number) => collide(x, z, RADIUS, undefined, PLAYER_BOUNDS);
+/** Furniture, walls — and people: the player can't walk through agents or staff either. */
+const move = (x: number, z: number) => {
+  const p = collide(x, z, RADIUS, undefined, PLAYER_BOUNDS);
+  const push = (o: { x: number; z: number }) => {
+    const dx = p.x - o.x, dz = p.z - o.z, d = Math.hypot(dx, dz), min = RADIUS + 0.26;
+    if (d > 0.001 && d < min) { p.x = o.x + (dx / d) * min; p.z = o.z + (dz / d) * min; }
+  };
+  for (const b of Object.values(agentBodies)) push(b);
+  for (const w of walkers) push(w);
+  return p;
+};
 const isTyping = () => {
   const el = document.activeElement as HTMLElement | null;
   return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
@@ -227,6 +238,7 @@ export function Player() {
     if (player.y === 0 && player.vy < 0) player.vy = 0;
 
     pose.current.mode = player.seat ? 'sit' : player.y > 0.02 ? 'air' : player.moving ? (player.running ? 'run' : 'walk') : 'stand';
+    pose.current.speed = player.running ? RUN : WALK;
     group.current.position.set(player.x, player.y, player.z);
     group.current.rotation.y = style === 'first' ? player.yaw : player.facing;
 

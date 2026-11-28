@@ -26,6 +26,22 @@ export const player = {
 
 /** Staff who walk around (agents are in agentBodies); doors open for them. */
 export const walkers = new Set<{ x: number; z: number; rot: number }>();
+/**
+ * Orang tidak saling tembus: apakah ada orang lain (pemain, agen, staf yang berjalan) tepat di depan `self` yang
+ * bergerak ke arah (dx, dz)? Yang berjalan lalu menunggu sebentar / bergeser, bukan menembus.
+ */
+export function personAhead(self: object, x: number, z: number, dx: number, dz: number, reach = 0.62): { x: number; z: number } | null {
+  const l = Math.hypot(dx, dz) || 1;
+  const check = (o: { x: number; z: number }) => {
+    const ox = o.x - x, oz = o.z - z, d = Math.hypot(ox, oz);
+    return d > 0.01 && d < reach && (ox * dx + oz * dz) / (d * l) > 0.35;
+  };
+  if (self !== player && player.y < 0.5 && check(player)) return player;
+  for (const b of Object.values(agentBodies)) if (b !== self && check(b)) return b;
+  for (const w of walkers) if (w !== self && check(w)) return w;
+  return null;
+}
+
 /** The camera during a recorded shot, so doors open as it flies through them. */
 export const shotCamera = { active: false, x: 0, z: 0, rot: 0 };
 

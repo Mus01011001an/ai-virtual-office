@@ -7,7 +7,8 @@ import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import * as THREE from 'three';
 import { useOffice, type CameraPreset } from '../store/useOffice';
 import { findShot, shotAt } from './shots';
-import { shotCamera } from '../world/runtime';
+import { player, shotCamera } from '../world/runtime';
+import { FOCUS, autoFocus, handheld } from './lens';
 import { RENDER } from './RenderController';
 
 const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
@@ -57,7 +58,10 @@ export function CameraDirector() {
     }
   }, [mode]);
 
-  useFrame((_, dtRaw) => {
+  const bobY = useRef(0);
+  const walkAmt = useRef(0);
+  const fwd = useMemo(() => new THREE.Vector3(), []);
+  useFrame(({ clock }, dtRaw) => {
     const dt = Math.min(dtRaw, 0.05);
     if (mode === 'life') {
       const cam = camera as THREE.PerspectiveCamera;
@@ -68,9 +72,15 @@ export function CameraDirector() {
       lifeBlend.current = Math.min(1, lifeBlend.current + dt / 1.3);
       const settled = lifeBlend.current >= 1;
       const k = settled ? (style === 'first' ? 1 : 1 - Math.exp(-dt * 16)) : 1 - Math.exp(-dt * (1.5 + 8 * lifeBlend.current));
+      camera.position.y -= bobY.current; // undo last frame's head bob before following the rig
       camera.position.lerp(rig.pos, k);
       curLook.current.lerp(rig.look, settled && style === 'first' ? 1 : k);
       camera.lookAt(curLook.current);
+      // real lens: focus on the player (3rd person) or whatever is in the middle of the view (1st person, autofocus), handheld sway, head bob while walking
+      if (style === 'third') FOCUS.set(player.x, 1.2 + player.y, player.z);
+      else autoFocus(camera.position, camera.getWorldDirection(fwd), FOCUS);
+      walkAmt.current = THREE.MathUtils.damp(walkAmt.current, style === 'first' && player.moving && player.y < 0.02 ? 1 : 0, 8, dt);
+      bobY.current = settled ? handheld(camera, clock.elapsedTime, 1, walkAmt.current, player.running) : 0;
       return;
     }
     const c = controls.current;
@@ -84,6 +94,8 @@ export function CameraDirector() {
       const { pos, look, done } = shotAt(shot, shotClock.current);
       camera.position.copy(pos);
       camera.lookAt(look);
+      FOCUS.copy(look);
+      handheld(camera, clock.elapsedTime, 0.8, 0, false);
       curLook.current.copy(look);
       Object.assign(shotCamera, { active: true, x: pos.x, z: pos.z, rot: Math.atan2(look.x - pos.x, look.z - pos.z) });
       if (done) {

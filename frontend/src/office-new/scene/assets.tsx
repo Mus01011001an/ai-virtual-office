@@ -1,11 +1,12 @@
 // Synty POLYGON Office props (public/models, converted with tools/synty_to_gltf.py).
 // One glTF holds every prop as a named node; <Prop> clones the one it needs.
-import { useMemo } from 'react';
+import { useLayoutEffect, useMemo, useRef } from 'react';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 
 import { MODELS_BASE, asset } from './assetMode';
 import { fallbackProp } from './fallback/kit';
+import { SOLID, registerSolid } from '../world/solids';
 
 export const PROPS_URL = `${MODELS_BASE}/office_props.gltf`;
 
@@ -121,11 +122,38 @@ function FallbackProp({ name, position = [0, 0, 0], rot = 0, rotation, scale = 1
     c.userData.prop = true;
     return c;
   }, [full, palette]);
+  const group = useRef<THREE.Group>(null);
+  // berdiri di lantai & termasuk SOLID → penghalang (tidak bisa ditembus pemain / NPC)
+  useLayoutEffect(() => {
+    const short = full.replace(/^SM_(Prop|Bld)_/, '');
+    if (!full.startsWith('SM_Bld_') && SOLID.test(short) && group.current) registerSolid(short, footprintOf(full, palette), group.current);
+  }, [full, palette]);
   return (
-    <group position={position} rotation={rotation ?? [0, rot, 0]} scale={scale} {...events}>
+    <group ref={group} position={position} rotation={rotation ?? [0, rot, 0]} scale={scale} {...events}>
       <primitive object={obj} />
     </group>
   );
+}
+
+const footprints = new Map<string, THREE.Box3>();
+/** bbox model kit (tanpa bayangan kontak), di ruang prop. */
+function footprintOf(full: string, palette: string) {
+  const key = `${full}|${palette}`;
+  let b = footprints.get(key);
+  if (!b) {
+    b = new THREE.Box3();
+    const o = fallbackProp(full, palette);
+    o.updateMatrixWorld(true);
+    const part = new THREE.Box3();
+    o.traverse((m) => {
+      const mesh = m as THREE.Mesh;
+      if (!mesh.isMesh || (mesh.material as THREE.Material).name === 'Blob') return;
+      if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+      b!.union(part.copy(mesh.geometry.boundingBox!).applyMatrix4(mesh.matrixWorld));
+    });
+    footprints.set(key, b);
+  }
+  return b;
 }
 
 export function Prop(props: PropProps) {

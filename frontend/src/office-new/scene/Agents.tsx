@@ -9,8 +9,8 @@ import { STATUS_COLOR, STATUS_LABEL } from '../core/agents';
 import type { Pose } from './Avatar';
 import { SyntyAvatar } from './SyntyAvatar';
 import { COFFEE_SPOTS, MEETING_SEATS, SOC_SPOTS, WHITEBOARD_SPOT, deskSeat, visitSpot, type Spot } from '../world/layout';
-import { findPath, type P } from '../world/nav';
-import { agentBodies, nearby, player } from '../world/runtime';
+import { collide, findPath, type P } from '../world/nav';
+import { agentBodies, nearby, personAhead, player } from '../world/runtime';
 import { labelPortal } from './labels';
 
 import { SEAT_MODEL as MODELS } from '../core/plugin/team';
@@ -68,6 +68,7 @@ function AgentFigure({ id }: { id: AgentId }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
+  const blockedT = useRef(0);
   useFrame((_, dtRaw) => {
     const dt = Math.min(dtRaw, 0.05);
     const b = agentBodies[id];
@@ -86,17 +87,25 @@ function AgentFigure({ id }: { id: AgentId }) {
       const next = path.current[0];
       const dx = next.x - b.x, dz = next.z - b.z;
       const dist = Math.hypot(dx, dz);
-      const step = walkSpeed * dt;
-      if (dist <= step) {
+      let ux = dx / (dist || 1), uz = dz / (dist || 1);
+      let step = walkSpeed * dt;
+      // nobody walks through people: wait a moment, then step around them to the right
+      const around = !!personAhead(b, b.x, b.z, dx, dz);
+      blockedT.current = around ? blockedT.current + dt : 0;
+      if (around && blockedT.current < 0.8) step = 0;
+      else if (around) { const rx = -uz, rz = ux; ux += rx * 0.9; uz += rz * 0.9; const l = Math.hypot(ux, uz); ux /= l; uz /= l; }
+      if (step === 0) {
+        pose.current.mode = 'stand';
+      } else if (!around && dist <= step) {
         b.x = next.x; b.z = next.z;
         path.current.shift();
         if (!path.current.length) setArrived(true);
       } else {
-        b.x += (dx / dist) * step;
-        b.z += (dz / dist) * step;
-        b.rot = angleLerp(b.rot, Math.atan2(dx, dz), 1 - Math.exp(-dt * 12));
+        const p = around ? collide(b.x + ux * step, b.z + uz * step, 0.25) : { x: b.x + ux * step, z: b.z + uz * step };
+        b.x = p.x; b.z = p.z;
+        b.rot = angleLerp(b.rot, Math.atan2(ux, uz), 1 - Math.exp(-dt * 12));
       }
-      pose.current.mode = 'walk';
+      if (step > 0) { pose.current.mode = 'walk'; pose.current.speed = walkSpeed; }
     } else {
       if (!st.agents[id].arrived && Math.hypot(b.x - target.current.spot.x, b.z - target.current.spot.z) < 0.05) setArrived(true);
       b.rot = angleLerp(b.rot, target.current.spot.rot, 1 - Math.exp(-dt * 8));
