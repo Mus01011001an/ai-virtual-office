@@ -10,6 +10,7 @@ import { AGENT_IDS } from '../core/types';
 import { Icon } from './common';
 import { AUTO_LEVEL, GFX_CHOICE, setGfx, type GfxChoice } from '../scene/quality';
 import { sfx } from '../scene/sfx';
+import { perf, usePerf } from '../scene/perf';
 
 async function signOut() {
   try { await api('POST', '/auth/signout'); } catch { /* token mungkin sudah tidak valid */ }
@@ -78,6 +79,17 @@ function SoundToggle() {
   );
 }
 
+/** Penghitung FPS & draw call seperti di video (pojok kanan bawah). */
+function PerfToggle() {
+  const on = usePerf().on;
+  return (
+    <label className="flex cursor-pointer items-center justify-between py-1">
+      <span>Show FPS &amp; draw calls</span>
+      <input type="checkbox" checked={on} onChange={(e) => perf.setOn(e.target.checked)} />
+    </label>
+  );
+}
+
 function Settings() {
   const s = useOffice();
   const playShot = useOffice((x) => x.playShot);
@@ -110,6 +122,7 @@ function Settings() {
             </details>
           )}
           <SoundToggle />
+          <PerfToggle />
           <label className="flex cursor-pointer items-center justify-between py-1">
             <span>Read replies aloud</span>
             <input type="checkbox" checked={s.voiceOn} onChange={(e) => s.setVoice(e.target.checked)} />

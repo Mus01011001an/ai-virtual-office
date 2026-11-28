@@ -296,9 +296,11 @@ export function buildBody(ap: Appearance): BodyGeos {
   // lengan atas: +0.06 (rata bahu) → siku; lengan bawah: siku → ujung tangan (-0.30)
   const upperLen = 0.06 - ELBOW_Y
   const sleeveLen = longSleeve ? upperLen : 0.13
+  // Lengan baju 3 mm lebih tinggi dari kotak kulit: dulu puncak keduanya sebidang → bahu berkedip kulit/baju
+  // (z-fighting). Lengan panjang menutup seluruh lengan atas, jadi kotak kulitnya tidak perlu.
   const upper = () => merge([
-    { g: rbox(ARM.w, upperLen, ARM.d, 0.04), c: skin, p: [0, 0.06 - upperLen / 2, 0] },
-    { g: rbox(ARM.w + 0.006, sleeveLen, ARM.d + 0.006, 0.04), c: top, p: [0, 0.06 - sleeveLen / 2, 0] },
+    ...(longSleeve ? [] : [{ g: rbox(ARM.w, upperLen, ARM.d, 0.04), c: skin, p: [0, 0.06 - upperLen / 2, 0] as V3 }]),
+    { g: rbox(ARM.w + 0.006, sleeveLen + 0.003, ARM.d + 0.006, 0.04), c: top, p: [0, 0.063 - (sleeveLen + 0.003) / 2, 0] },
   ])
   const fore = () => merge([
     { g: rbox(ARM.w - 0.004, 0.22, ARM.d - 0.004, 0.035), c: longSleeve ? top : skin, p: [0, -0.11, 0] },

@@ -22,7 +22,7 @@ export function CharacterShadows() {
     let i = 0;
     const put = (x: number, z: number, s = S) => {
       if (i >= MAX) return;
-      m.makeScale(s, 1, s).setPosition(x, 0.02, z);
+      m.makeScale(s, 1, s).setPosition(x, 0.03, z);
       ref.current.setMatrixAt(i++, m);
     };
     for (const id of AGENT_IDS) if (!st.agents[id].vacant) put(agentBodies[id].x, agentBodies[id].z);

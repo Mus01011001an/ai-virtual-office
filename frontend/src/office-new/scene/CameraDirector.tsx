@@ -63,6 +63,11 @@ export function CameraDirector() {
   const fwd = useMemo(() => new THREE.Vector3(), []);
   useFrame(({ clock }, dtRaw) => {
     const dt = Math.min(dtRaw, 0.05);
+    // Presisi kedalaman: dari jauh (Overview, kamera ≥3 m dari sasaran) near 0,35 m → 3,5× lebih presisi, sehingga
+    // permukaan yang berjarak beberapa mm tidak berkedip; masuk gedung / rekaman kamera tetap 0,1 m (dekat dinding).
+    const pc = camera as THREE.PerspectiveCamera;
+    const wantNear = mode === 'life' || shotId ? 0.1 : 0.35;
+    if (pc.near !== wantNear) { pc.near = wantNear; pc.updateProjectionMatrix(); }
     if (mode === 'life') {
       const cam = camera as THREE.PerspectiveCamera;
       // Walk in: wider lens like the reference video (45° felt zoomed in, like a toy diorama)

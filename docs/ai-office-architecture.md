@@ -296,3 +296,31 @@ menjalankan `claude -p` di folder project; balasan kembali lewat SSE `claude.rep
 `core/avo/claudeTransport.ts` (`runner()`, `send()`), `PluginAdapter` (`can.submit/assign/chat` mengikuti runner,
 `ask()` menunggu jawaban), `ui/Dashboard.tsx` (`RunnerLine`), `ui/ClaudeHookHelp.tsx` (langkah 4). Detail:
 `docs/ai-office-claude-code.md` §Dua arah.
+
+## 19. Tanpa kedip (z-fighting) + draw call (2026-11-28)
+
+**Kedip-kedip** = dua permukaan sebidang (atau berjarak 1 mm) sehingga GPU bergantian menggambar keduanya saat kamera
+bergerak. Dideteksi otomatis: kamera diam, `near/far` diubah sedikit beberapa kali, piksel yang berubah = z-fighting,
+lalu raycast ke titik itu untuk tahu bendanya. Hasil per tampilan (piksel berkedip): overview 5.115 → 133,
+workspace 2.509 → 76, dapur 1.478 → 9, lounge 937 → 96, security 370 → 77.
+
+| Sumber | Perbaikan | File |
+|---|---|---|
+| Kusen pintu/jendela & ambang sebidang dengan ujung dinding | kusen menutupi sisi lubang 3 mm, ambang 3 mm di atas dinding bawah | `fallback/kit.ts` `wall()` |
+| Bahu karakter: kotak kulit & lengan baju puncaknya sama | lengan baju 3 mm lebih tinggi; lengan panjang tanpa kotak kulit | `characters/Humanoid.tsx` (juga office lama) |
+| Karpet: lapisan dalam/luar 1 mm, bayangan kontak 1 mm di bawah puncak karpet + polygonOffset | lapisan 5 mm; bayangan prop 2,8 cm, karakter 3 cm, tanpa polygonOffset; karpet pintu masuk dinaikkan | `kit.ts`, `CharacterShadows.tsx`, `Office.tsx` |
+| Overview: presisi kedalaman | `near` 0,35 m di Overview (0,1 m di Walk in & rekaman) → 3,5× lebih presisi | `CameraDirector.tsx` |
+| List parapet menjorok 14 cm ke ruang & sebidang dengan video wall | tutup parapet simetris di atas dinding (±11 cm) | `kit.ts` `Roof_Side` |
+| Tiang dinding kaca sebidang dengan dinding sebelahnya | tiang 4 mm lebih tebal & tinggi | `kit.ts` `Wall_Glass_Pillar` |
+| Penutup jendela luar Synty jatuh di dalam dinding | tidak digambar di kit | `kit.ts` `Window_(Net|Cover)` |
+| Dua sofa sudut lounge bertumpuk; papan nama pintu masuk tertanam di kanopi | posisi digeser | `Office.tsx` |
+| Panel kayu dinding setinggi list atas | 5 mm lebih pendek | `kit.ts` `FeatureWall*` |
+| Rak: panel belakang setengah di bawah lantai, papan sebidang dengan panel samping | panel belakang dari lantai, papan 2 mm masuk; papan berakhir tepat di level isi rak | `kit.ts` `shelf()` |
+| Papan nama transparan (urutan gambar bertukar) | `alphaTest` (potongan), bukan transparan | `Office.tsx` `WallSign` |
+
+**Draw call** (seluruh gedung terlihat, grafis High, satu frame termasuk pasca-proses): 391 → 275 (adegan saja
+374 → 258; versi pertama Office Baru ±1.083; video referensi 174). Caranya: warna bahan Poly Haven pindah ke vertex
+color → satu material per jenis bahan (`pbrSharedFor`), material polos 6 kelas (3 kekasaran × 2 logam), sel
+`StaticBatch` 20 → 30 m. Sisa yang memang terpisah: ±46 karakter (1 draw call/orang), daun pintu beranimasi, layar.
+⚙ → **Show FPS & draw calls** menampilkan `FPS · draw calls · tris` di pojok kanan bawah (`scene/perf.ts`,
+`OfficeScene` `PerfMeter`, `ui/PerfBadge.tsx`).

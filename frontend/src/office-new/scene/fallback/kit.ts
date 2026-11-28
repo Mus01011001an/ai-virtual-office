@@ -91,9 +91,27 @@ function pbr(kind: PbrKind, color: string, map?: THREE.Texture) {
       normalScale: new THREE.Vector2(s.normal, s.normal),
     });
     sm.userData.boxUV = map ? 0 : s.size;
+    sm.userData.pbrKind = kind;
     pbrMats.set(key, (m = sm));
   }
   return m;
+}
+/**
+ * Satu material per jenis bahan (+ peta), warna palet pindah ke vertex color saat prop digabung: semua kain, semua kayu,
+ * dst. jadi satu draw call per sel, bukan satu per warna.
+ */
+const pbrShared = new Map<string, THREE.MeshStandardMaterial>();
+function pbrSharedFor(m: THREE.MeshStandardMaterial) {
+  const key = `${m.userData.pbrKind}|${m.map?.uuid ?? ''}`;
+  let s = pbrShared.get(key);
+  if (!s) {
+    s = m.clone();
+    s.color.set('#ffffff');
+    s.vertexColors = true;
+    s.userData = { boxUV: m.userData.boxUV, pbrKind: m.userData.pbrKind, shared: true };
+    pbrShared.set(key, s);
+  }
+  return s;
 }
 /** UV kotak (proyeksi per sumbu dari posisi, satuan meter) — tekstur sama besarnya di semua sisi & ukuran. */
 function boxUV(g: THREE.BufferGeometry, size: number) {
@@ -153,7 +171,8 @@ function woodPbr(tint: string) {
 }
 
 /** Satu material bayangan kontak untuk semua prop & karakter (StaticBatch menggabungnya jadi 1 draw call). */
-export const BLOB_MAT = new THREE.MeshBasicMaterial({ color: '#000000', map: blobTexture(), transparent: true, opacity: 0.55, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+// Di atas karpet (puncak ≤ 2,3 cm) dengan jarak aman: dulu 1 mm di bawah puncak karpet + polygonOffset → berkedip.
+export const BLOB_MAT = new THREE.MeshBasicMaterial({ color: '#000000', map: blobTexture(), transparent: true, opacity: 0.55, depthWrite: false });
 BLOB_MAT.name = 'Blob';
 const BLOB_GEO = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
 /** Bayangan lembut di lantai sesuai tapak prop yang berdiri di lantai (meja, kursi, sofa, rak, …). */
@@ -164,7 +183,7 @@ function addContactShadow(o: THREE.Object3D) {
   if (w * d < 0.04 || w * d > 14) return;
   const blob = new THREE.Mesh(BLOB_GEO, BLOB_MAT);
   blob.scale.set(w * 1.3 + 0.15, 1, d * 1.3 + 0.15);
-  blob.position.set((box.min.x + box.max.x) / 2, 0.016, (box.min.z + box.max.z) / 2);
+  blob.position.set((box.min.x + box.max.x) / 2, 0.028, (box.min.z + box.max.z) / 2);
   o.add(blob);
 }
 
@@ -194,11 +213,15 @@ function wall(name: string, pal: string, len: number, hole?: Hole, kind?: 'windo
     r(g, m, [hole.x0, hole.x1], [hole.y1, 3], T);
     const frame = mat(kind === 'elevator' ? '#9aa0a6' : '#e6e0d2');
     const f = 0.06;
-    r(g, frame, [hole.x0 - f, hole.x0], [hole.y0, hole.y1 + f], [-0.01, 0.17]);
-    r(g, frame, [hole.x1, hole.x1 + f], [hole.y0, hole.y1 + f], [-0.01, 0.17]);
-    r(g, frame, [hole.x0, hole.x1], [hole.y1, hole.y1 + f], [-0.01, 0.17]);
+    // Kusen menutupi sisi dalam lubang 3 mm: tanpa itu muka kusen sebidang persis dengan ujung dinding (x0/x1/y1)
+    // dan GPU bergantian menggambar keduanya → berkedip (z-fighting) saat kamera bergerak.
+    const e = 0.003;
+    r(g, frame, [hole.x0 - f, hole.x0 + e], [hole.y0, hole.y1 + f], [-0.01, 0.17]);
+    r(g, frame, [hole.x1 - e, hole.x1 + f], [hole.y0, hole.y1 + f], [-0.01, 0.17]);
+    r(g, frame, [hole.x0 - e, hole.x1 + e], [hole.y1 - e, hole.y1 + f], [-0.01, 0.17]);
     if (kind === 'window') {
-      r(g, frame, [hole.x0 - 0.05, hole.x1 + 0.05], [hole.y0 - 0.04, hole.y0], [-0.03, 0.22]);
+      // ambang jendela sedikit di atas & di luar puncak dinding bawah (juga sebidang sebelumnya)
+      r(g, frame, [hole.x0 - 0.05, hole.x1 + 0.05], [hole.y0 - 0.04, hole.y0 + e], [-0.03, 0.22]);
       r(g, mat(C.glassTint, { glass: true }), [hole.x0, hole.x1], [hole.y0, hole.y1], [0.07, 0.08]);
       r(g, frame, [(hole.x0 + hole.x1) / 2 - 0.025, (hole.x0 + hole.x1) / 2 + 0.025], [hole.y0, hole.y1], [0.06, 0.09]);
     }
@@ -305,12 +328,13 @@ function building(short: string, pal: string): THREE.Object3D | null {
   if (/^Ceiling_Panel_Light/.test(n)) { const g = new THREE.Group(); b(g, mat('#3a3a3c'), 0.66, 0.02, 0.66, 0, -0.025); b(g, mat('#e9dcc4', { emissive: '#ffe2b8', ei: 0.42 }), 0.58, 0.02, 0.58, 0, -0.035); return g; }
   if (/^Ceiling_Aircon/.test(n)) { const g = new THREE.Group(); b(g, mat('#e9e7e1'), 0.9, 0.12, 0.9, 0, -0.12); b(g, mat('#9a9a96'), 0.6, 0.01, 0.6, 0, -0.13); return g; }
   if (/^Roof_Side_Corner/.test(n)) { const g = new THREE.Group(); b(g, mat('#d8d2c4'), 0.36, 0.28, 0.36, 0, 0); return g; }
-  if (/^Roof_Side/.test(n)) { const g = new THREE.Group(); r(g, mat('#d8d2c4'), [0, 2.5], [0, 0.28], [-0.06, 0.22]); return g; }
+  // tutup parapet di atas dinding, simetris (dulu menjorok 14 cm ke dalam ruang & sebidang dengan video wall → kedip)
+  if (/^Roof_Side/.test(n)) { const g = new THREE.Group(); r(g, mat('#d8d2c4'), [0, 2.5], [0, 0.28], [-0.11, 0.11]); return g; }
   if (/^Roof/.test(n)) { const g = new THREE.Group(); r(g, mat('#3a3d44'), [0, 2.5], [0, 0.2], [-2.5, 0]); return g; }
   if (/^Elevator_01/.test(n)) { const g = new THREE.Group(); r(g, mat('#8d9299', { metal: 0.5 }), [0.1, 2.4], [0, 2.95], [-2.4, -0.1]); return g; }
   if (/^Door_/.test(n)) return doorLeaf(n);
   if (/^Glass_Door/.test(n)) return doorLeaf(n);
-  if (/^Wall_Glass_Pillar/.test(n)) { const g = new THREE.Group(); r(g, mat('#2b2b2f'), [-0.05, 0.05], [0, 3], [0, 0.15]); return g; }
+  if (/^Wall_Glass_Pillar/.test(n)) { const g = new THREE.Group(); r(g, mat('#2b2b2f'), [-0.05, 0.05], [0, 3.004], [-0.004, 0.154]); return g; }
   if (/^Wall_Glass_Large_Window_Blinds_(\w+)_01/.test(n)) return blinds(RegExp.$1, { x0: 0.06, x1: 4.94, y0: 0.08, y1: 2.9 });
   if (/^Wall_Glass_Window_Blinds_(\w+)_01/.test(n)) return blinds(RegExp.$1, { x0: 0.06, x1: 2.44, y0: 0.08, y1: 2.9 });
   if (/^Wall_Glass_Large_Door/.test(n)) return glassWall(5, [2.5 - 0.95, 2.5 + 0.95], 2.32);
@@ -325,11 +349,12 @@ function building(short: string, pal: string): THREE.Object3D | null {
   if (/^Wall_(Blank|Trim|Baseboard|Brick)_01$/.test(n)) return wall(n, pal, 2.5);
   if (/^FeatureWall_Wood/.test(n)) {
     const g = new THREE.Group();
-    r(g, mat('#3a2418'), [0, 2.5], [0, 3], [0, 0.03]);
-    for (let x = 0.04; x < 2.5; x += 0.125) r(g, pbr('wood', '#b07a48'), [x, x + 0.08], [0, 3], [0.03, 0.09]);
+    // 5 mm di bawah puncak dinding: dulu puncaknya sebidang dengan list atas (crown) → garis berkedip di atas
+    r(g, mat('#3a2418'), [0, 2.5], [0, 2.995], [0, 0.03]);
+    for (let x = 0.04; x < 2.5; x += 0.125) r(g, pbr('wood', '#b07a48'), [x, x + 0.08], [0, 2.995], [0.03, 0.09]);
     return g;
   }
-  if (/^FeatureWall/.test(n)) { const g = new THREE.Group(); r(g, mat(/Slate/.test(n) ? '#3e4247' : '#6d5b4a'), [0, 2.5], [0, 3], [0, 0.06]); return g; }
+  if (/^FeatureWall/.test(n)) { const g = new THREE.Group(); r(g, mat(/Slate/.test(n) ? '#3e4247' : '#6d5b4a'), [0, 2.5], [0, 2.995], [0, 0.06]); return g; }
   if (/^Pillar_Metal/.test(n)) { const g = new THREE.Group(); b(g, mat('#2b2b2f'), 0.1, 3.0, 0.1); return g; }
   if (/^Pillar/.test(n)) { const g = new THREE.Group(); b(g, mat(/Exterior/.test(n) ? '#d8d2c4' : WALL['01']), 0.4, 3.28, 0.4); return g; }
   if (/^GardenEdge/.test(n)) { const g = new THREE.Group(); r(g, mat('#8a8780'), [0, 2.5], [0, 0.25], [0, 0.2]); return g; }
@@ -341,8 +366,7 @@ function building(short: string, pal: string): THREE.Object3D | null {
     a.rotation.x = 0.25;
     return g;
   }
-  if (/^Window_Cover_Pole|^Window_Net_Pole/.test(n)) { const g = new THREE.Group(); b(g, mat('#2b2b2f'), 0.08, 2.9, 0.08); return g; }
-  if (/^Window_Cover_Glass/.test(n)) { const g = new THREE.Group(); r(g, mat(C.glassTint, { glass: true }), [0, 2.5], [0.1, 2.8], [0.02, 0.04]); return g; }
+  // penutup jendela luar Synty (kaca, tiang, jaring): di kit ini jatuh di dalam dinding → tidak digambar
   if (/^Window_(Net|Cover)/.test(n)) return new THREE.Group();
   if (/^Stairs/.test(n)) { const g = new THREE.Group(); for (let i = 0; i < 6; i++) r(g, mat('#8a6a4a'), [0, 2.5], [0, (i + 1) * 0.18], [-i * 0.3 - 0.3, -i * 0.3]); return g; }
   return null;
@@ -478,16 +502,18 @@ function shelf(n: number) {
   const w = spec?.[0] ?? 0.9 + (n % 3) * 0.3, h = spec?.[2] ?? (n === 6 ? 1.0 : 1.9), d = 0.38;
   b(g, m, 0.03, h, d, -w / 2);
   b(g, m, 0.03, h, d, w / 2);
-  b(g, m, w, 0.02, 0.02, 0, 0, -d / 2 + 0.01).scale.y = h;
+  // panel belakang: dari lantai ke atas, 2 mm masuk dari sisi belakang (tidak sebidang dengan panel samping)
+  r(g, m, [-w / 2, w / 2], [0, h], [-d / 2 + 0.002, -d / 2 + 0.02]);
   if (spec) {
-    for (const y of [...spec[1], h - 0.03]) b(g, m, w, 0.03, d, 0, Math.max(0, y - 0.03));
+    // papan berakhir tepat di tiap level (isi rak duduk di atasnya), papan atas = atap rak
+    for (const y of [...spec[1], h]) b(g, m, w - 0.004, 0.03, d - 0.004, 0, Math.max(0, y - 0.03));
     if (spec[1][0] > 0.1) b(g, m, w, 0.05, d, 0, 0);
     // Shelf_07: bilik-bilik (cubbies)
     if (n === 7) for (let i = 1; i < 6; i++) b(g, m, 0.025, h, d, -w / 2 + (i * w) / 6);
     return g;
   }
   const rows = Math.round(h / 0.38);
-  for (let i = 0; i <= rows; i++) b(g, m, w, 0.03, d, 0, (i * (h - 0.03)) / rows);
+  for (let i = 0; i <= rows; i++) b(g, m, w - 0.004, 0.03, d - 0.004, 0, (i * (h - 0.03)) / rows);
   const cols = ['#2f5fa8', '#b8352b', '#e0b04a', '#2f7a46', '#e8e4da', '#5b3a24'];
   for (let i = 0; i < rows; i++) {
     let x = -w / 2 + 0.05;
@@ -645,7 +671,7 @@ function furniture(n: string): THREE.Object3D | null {
   if (/^CoatRack/.test(n)) { cyl(g, mat(C.woodDark), 0.025, 1.8); cyl(g, mat(C.woodDark), 0.22, 0.03); return g; }
   if (/^Plant_Flowers|^Flowers/.test(n)) { cyl(g, mat('#e8e4da'), 0.06, 0.18); for (let i = 0; i < 5; i++) ball(g, mat(['#d9473a', '#f2c94c', '#e86a92'][i % 3]), [0.06, 0.06, 0.06], [Math.sin(i) * 0.05, 0.3 + (i % 2) * 0.05, Math.cos(i) * 0.05]); return g; }
   if (/^Plant|^Tree_Round|^Small_Hedge|^Neon_Cactus/.test(n)) { if (/Tree/.test(n)) { cyl(g, mat('#5a3d28'), 0.1, 1.2); ball(g, mat('#3f7a3a'), [1.6, 1.4, 1.6], [0, 1.9, 0]); return g; } if (/Hedge/.test(n)) { b(g, mat('#2f6a34'), 1.2, 0.6, 0.5); return g; } return plant(num); }
-  if (/^Rug/.test(n)) { const cols = ['#7a2f2a', '#2f4f7a', '#b5652e', '#3d5a3f', '#8a2b2b']; const w = [3, 2.4, 2, 3.2, 2.6][(num - 1) % 5], d = [2, 1.6, 1.4, 2.2, 1.8][(num - 1) % 5]; b(g, mat(cols[(num - 1) % 5], { rough: 1 }), w, 0.012, d); b(g, mat('#e8d9b8', { rough: 1 }), w - 0.2, 0.013, d - 0.2).visible = num === 1; return g; }
+  if (/^Rug/.test(n)) { const cols = ['#7a2f2a', '#2f4f7a', '#b5652e', '#3d5a3f', '#8a2b2b']; const w = [3, 2.4, 2, 3.2, 2.6][(num - 1) % 5], d = [2, 1.6, 1.4, 2.2, 1.8][(num - 1) % 5]; b(g, mat(cols[(num - 1) % 5], { rough: 1 }), w, 0.012, d); b(g, mat('#e8d9b8', { rough: 1 }), w - 0.2, 0.017, d - 0.2).visible = num === 1; return g; }
   if (/^Whiteboard|^Darkboard|^Blackboard/.test(n)) {
     const board = mat(/Dark|Black/.test(n) ? '#2a3a34' : '#f6f6f2', { rough: 0.3 });
     if (num === 2 || /Darkboard/.test(n)) { b(g, mat('#9aa0a6'), 0.05, 1.9, 0.5, -0.8); b(g, mat('#9aa0a6'), 0.05, 1.9, 0.5, 0.8); r(g, board, [-0.78, 0.78], [0.8, 1.85], [-0.02, 0.02]); }
@@ -728,11 +754,14 @@ const cache = new Map<string, THREE.Object3D>();
  * sehingga ratusan warna prop = beberapa material saja → StaticBatch menggabung hampir semua prop jadi sedikit draw call.
  */
 const plainMats = new Map<string, THREE.MeshStandardMaterial>();
+/** Material polos dibagi per kelas: 3 kekasaran × 2 logam = maks 6 material (dulu tiap pasangan → banyak draw call). */
 function plainMaterial(m: THREE.MeshStandardMaterial) {
-  const key = `${Math.round(m.roughness * 10)}|${Math.round(m.metalness * 10)}`;
+  const rough = m.roughness < 0.45 ? 0.35 : m.roughness < 0.75 ? 0.6 : 0.9;
+  const metal = m.metalness < 0.25 ? 0 : 0.5;
+  const key = `${rough}|${metal}`;
   let p = plainMats.get(key);
   if (!p) {
-    p = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: Math.round(m.roughness * 10) / 10, metalness: Math.round(m.metalness * 10) / 10, flatShading: true });
+    p = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: rough, metalness: metal, flatShading: true });
     plainMats.set(key, p);
   }
   return p;
@@ -757,7 +786,14 @@ function mergeByMaterial(root: THREE.Object3D): THREE.Object3D {
     let material: THREE.Material = m.material;
     const uvSize = (material.userData as { boxUV?: number }).boxUV;
     if (uvSize) boxUV(g, uvSize);
-    if (isPlain(material)) {
+    if ((material.userData as { pbrKind?: string; shared?: boolean }).pbrKind && !material.userData.shared) {
+      const c = (material as THREE.MeshStandardMaterial).color;
+      const n = g.attributes.position.count;
+      const col = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) { col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b; }
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      material = pbrSharedFor(material as THREE.MeshStandardMaterial);
+    } else if (isPlain(material)) {
       const c = material.color;
       const n = g.attributes.position.count;
       const col = new Float32Array(n * 3);

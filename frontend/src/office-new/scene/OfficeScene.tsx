@@ -21,6 +21,7 @@ import { OCC, patchScene } from './occlusion';
 import { player } from '../world/runtime';
 import { LIGHT_POOL, Q } from './quality';
 import { FOCUS } from './lens';
+import { perf, usePerf } from './perf';
 import { sfx } from './sfx';
 
 /** Warm room lights, like ceiling lamps: [x, z, intensity, distance]. */
@@ -101,6 +102,23 @@ function Occlusion() {
   return null;
 }
 
+/** Hitung draw call & segitiga satu frame utuh (termasuk efek pasca-proses) dan FPS, 2× per detik. */
+function PerfMeter() {
+  const gl = useThree((s) => s.gl);
+  const acc = useRef({ frames: 0, t0: performance.now() });
+  useEffect(() => { gl.info.autoReset = false; return () => { gl.info.autoReset = true; }; }, [gl]);
+  useFrame(() => {
+    // awal frame: angka gl.info = total frame sebelumnya, lalu mulai hitung lagi
+    const calls = gl.info.render.calls, tris = gl.info.render.triangles;
+    gl.info.reset();
+    const a = acc.current;
+    a.frames++;
+    const now = performance.now();
+    if (now - a.t0 >= 500) { perf.set({ fps: Math.round((a.frames * 1000) / (now - a.t0)), calls, tris }); a.frames = 0; a.t0 = now; }
+  }, -1);
+  return null;
+}
+
 /** Telinga = kamera: posisi & arah pandang untuk volume dan kiri/kanan efek suara. */
 function SfxListener() {
   const camera = useThree((s) => s.camera);
@@ -126,6 +144,7 @@ export function OfficeScene() {
   // real lens (depth of field) only where it reads as a camera: Walk in and recorded shots, Medium/High graphics
   const lensOn = useOffice((s) => Q.dof && (s.mode === 'life' || !!s.shot));
   const dof = useRef<DepthOfFieldEffect | null>(null);
+  const perfOn = usePerf().on;
   return (
     <Canvas
       shadows={{ type: THREE.PCFSoftShadowMap }}
@@ -187,6 +206,7 @@ export function OfficeScene() {
 
       <StaticShadows />
       <SfxListener />
+      {perfOn && <PerfMeter />}
       {lensOn && <LensFocus dof={dof} />}
       {/* key: menambah/melepas DepthOfField di composer yang sama membuat render gagal (GL INVALID_OPERATION) → bangun ulang */}
       <EffectComposer key={lensOn ? 'lens' : 'flat'} multisampling={Q.msaa}>

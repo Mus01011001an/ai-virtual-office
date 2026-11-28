@@ -21,7 +21,8 @@ function batchable(mesh: THREE.Mesh, root: THREE.Object3D) {
 /** ?legacy turns merging off, to measure the office the way it first ran (for the Ep7 video). */
 const LEGACY = new URLSearchParams(location.search).has('legacy');
 /** Ukuran area batch (meter). */
-const CELL = 20;
+// 30 m: gedung (50 × 30 m) = ±4 sel → lebih sedikit draw call; di Walk in tetap hanya 1–2 sel yang terlihat
+const CELL = 30;
 const _c = new THREE.Vector3();
 
 export function StaticBatch({ children }: { children: ReactNode }) {

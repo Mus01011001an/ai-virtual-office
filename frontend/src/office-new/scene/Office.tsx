@@ -385,7 +385,8 @@ function WallSign({ position, light = false, width = 2.9 }: { position: [number,
   return (
     <mesh position={position}>
       <planeGeometry args={[width, width * 0.195]} />
-      <meshBasicMaterial map={tex} transparent toneMapped={false} />
+      {/* potongan alpha, bukan transparan: urutan gambar transparan bisa bertukar saat kamera bergerak → kedip */}
+      <meshBasicMaterial map={tex} alphaTest={0.35} toneMapped={false} />
     </mesh>
   );
 }
@@ -621,7 +622,7 @@ function Reception() {
       <Prop name="B:FeatureWall_Wood_01" position={[-17.5, 0, 5.155]} />
       <Prop name="B:FeatureWall_Wood_01" position={[-15, 0, 5.155]} />
       <WallSign position={[-14.6, 2.15, 5.26]} light width={4.2} />
-      <WallSign position={[-15, 3.23, 17.73]} light width={2.6} />
+      <WallSign position={[-15, 3.23, 17.83]} light width={2.6} />
       {/* Desk_06 is L-shaped: work surface (0.75) along z -0.2..0.5 and a left wing; a narrow raised counter (0.93) on the visitor side */}
       <Prop name="Plant_Flowers_01" position={[r.x + 1.5, 0.75, r.z - 0.05]} />
       <Prop name="Rug_05" position={[-18.2, 0.005, 11.0]} rot={Math.PI / 2} />
@@ -638,7 +639,7 @@ function Reception() {
       <Prop name="Rug_03" position={[-15.0, 0.005, 12.8]} rot={Math.PI / 2} palette="04" scale={[1.3, 1, 1.6]} />
       <Prop name="WaterCooler_01" position={[-19.5, 0, 8.05]} rot={Math.PI / 2} />
       <Prop name="Sign_Exit_01" position={[-15, 2.75, 14.8]} rot={Math.PI} />
-      <Prop name="Rug_03" position={[-15, 0.006, 14.0]} rot={Math.PI / 2} palette="02" />
+      <Prop name="Rug_03" position={[-15, 0.011, 14.0]} rot={Math.PI / 2} palette="02" />
       <Prop name="Certificate_01" position={[-19.82, 1.8, 8.6]} rot={Math.PI / 2} />
     </group>
   );
@@ -666,8 +667,9 @@ function Lounge() {
       <Prop name="Sign_Director_01" position={[-6.25, 2.6, -2.36]} />
       {/* second seating corner by the fish tank */}
       <Prop name="Rug_02" position={[-8.0, 0.005, 10.4]} palette="02" />
-      <Prop name="Couch_05" position={[-9.3, 0, 9.4]} rot={Math.PI / 2} />
-      <Prop name="Couch_06" position={[-8.1, 0, 8.2]} />
+      {/* sofa sudut tidak saling tumpuk (dulu dudukannya sebidang di sudut → berkedip) */}
+      <Prop name="Couch_05" position={[-9.3, 0, 9.55]} rot={Math.PI / 2} />
+      <Prop name="Couch_06" position={[-8.1, 0, 8.1]} />
       <Prop name="CoffeeTable_03" position={[-8.1, 0, 9.4]} />
       <Prop name="Cup_Red_01" position={[-8.0, 0.53, 9.3]} />
       <Prop name="ArcadeMachine_01" position={[-9.33, 0, 5.2]} rot={Math.PI / 2} screen="Sceen_Arcade_01" />

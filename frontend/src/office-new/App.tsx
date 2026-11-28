@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { PerfBadge } from './ui/PerfBadge';
 import { AnimatePresence } from './ui/motion';
 import { OfficeScene } from './scene/OfficeScene';
 import { RENDER } from './scene/RenderController';
@@ -124,6 +125,7 @@ export default function App() {
       {uiHidden && <ShowUi />}
 
       {mode === 'life' && <LifeHud />}
+      <PerfBadge />
 
       <div className="pointer-events-none fixed bottom-20 left-1/2 z-30 -translate-x-1/2">
         <AnimatePresence>{chatWith && <ChatWindow key={chatWith} id={chatWith} />}</AnimatePresence>
