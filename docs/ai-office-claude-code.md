@@ -16,6 +16,41 @@ bila sudah login; pilihan lain (AI team backend, Demo) di ⚙ dan diingat per br
      membaca project dan menulis sub-agent `.claude/agents/*.md`.
 3. Jalankan `claude`, ketik `/office-setup`, lalu beri pekerjaan seperti biasa.
 
+## Dua arah: tugas & chat dari office (sejak 2026-11-28)
+
+Office bisa memberi perintah ke Claude Code di komputer pemilik — tanpa API key, memakai akun Claude yang login di
+`claude` komputer itu (Pro/Max untuk pemakaian sendiri/tim; produk untuk perusahaan lain wajib API key Console).
+
+1. Di folder project yang sudah dipasang hook: `node .claude/avo-office-hook.mjs listen` (biarkan menyala).
+   Token & API diambil dari `.claude/settings.local.json`. Opsi: `--team` (semua anggota office boleh memberi tugas;
+   default hanya pemilik token), `--mode <permission-mode>` (default `acceptEdits`), `--allow "<allowedTools>"`
+   (default npm run/test, npx tsc, git status/diff/log, ls), `--model`, `--claude <path>`.
+2. Office: ⚙ → *Connect Claude Code* langkah 4 menampilkan status runner; panel **New task** dan **Assign task**
+   aktif selama runner online; chat ke karyawan (E / klik) dijawab Claude sebagai karyawan itu.
+
+Alur: office `POST /office/claude-code/commands` `{kind: task|chat, text, to?, toName?}` → antrean di memori per office
+(maks 20) → runner long-poll `GET /runner/next` (±25 dtk, sekaligus heartbeat) → `claude -p <prompt> --output-format
+json --permission-mode … --allowedTools … [--resume <sesi>]` di folder project → `POST /commands/:id/result`
+(`result` terakhir Claude) → SSE `claude.reply`. Aktivitasnya tetap tampil lewat hook biasa (karyawan berjalan,
+tool call). Satu sesi Claude dipakai terus (Claude ingat percakapan office) sampai runner dihentikan; sesi yang tak bisa
+dilanjutkan → sesi baru otomatis.
+
+| Endpoint (`/office/claude-code`) | Siapa | Isi |
+|---|---|---|
+| `GET runner` | anggota office | `{online, busy, host, mine, allowTeam, queued}` |
+| `GET commands` | anggota office | 30 perintah terakhir |
+| `POST commands` | `employee.instruction:send` + pemilik runner (atau `--team`) | 503 bila runner offline, 403 bila bukan pemilik |
+| `GET runner/next`, `POST runner/ping`, `POST runner/bye`, `POST commands/:id/result` | runner (token pemilik) | ping tiap 20 dtk selama `claude -p` bekerja; offline setelah 45 dtk tanpa kabar |
+
+SSE: `claude.command` (antre/jalan), `claude.reply` (selesai/gagal), `claude.runner` (online/offline/sibuk → browser
+mengambil ulang `GET runner`). Office: chat menunggu jawaban hingga 4 menit (lalu "masih dikerjakan", jawaban datang
+sebagai pesan baru); hasil tugas masuk **Team channel** dari manajer + log *Done/Failed*. Prompt runner diawali
+`[Agent Office]`; office menampilkan teks permintaannya saja.
+
+Catatan: antrean di memori (restart backend = antrean kosong, runner menyambung lagi sendiri). Claude bisa mengedit
+file & menjalankan perintah yang diizinkan di folder itu — jalankan runner hanya di folder project yang memang boleh
+diubah.
+
 ## Yang dikirim hook (stdin Claude Code → `POST /office/claude-code/events`)
 
 | Event | Tambahan dari script |

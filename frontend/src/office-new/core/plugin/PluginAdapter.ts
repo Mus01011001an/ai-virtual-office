@@ -6,7 +6,7 @@ import type { AdapterContext, AgentDataAdapter } from '../adapter';
 import type { AgentId, Lang, Project, Task } from '../types';
 import { uid } from '../types';
 import { PROFILES } from '../agents';
-import { applyTeam, isVacant, seatFor, type TeamRole } from './team';
+import { applyTeam, isVacant, roleOf, seatFor, type TeamRole } from './team';
 import { hqIngest, resetHq } from '../../hq/claudeHq';
 
 /**
@@ -16,8 +16,26 @@ import { hqIngest, resetHq } from '../../hq/claudeHq';
 export interface HookTransport {
   label: string;
   team(): Promise<TeamRole[]>;
-  open(onEvents: (evs: HookEvent[]) => void, onStatus: (s: 'connecting' | 'open' | 'error') => void): () => void;
+  open(onEvents: (evs: HookEvent[]) => void, onStatus: (s: 'connecting' | 'open' | 'error') => void, onControl?: (kind: 'command' | 'reply' | 'runner', data: unknown) => void): () => void;
+  /** Dua arah (opsional): status runner di komputer pemilik, dan kirim tugas/chat ke Claude Code lewat runner. */
+  runner?(): Promise<RunnerStatus>;
+  send?(cmd: { kind: 'task' | 'chat'; text: string; to?: string; toName?: string }): Promise<ClaudeCommand>;
 }
+
+/** `node .claude/avo-office-hook.mjs listen` di komputer seseorang (docs/ai-office-claude-code.md §Dua arah). */
+export interface RunnerStatus { online: boolean; busy: boolean; host?: string; mine: boolean; allowTeam: boolean; queued: number }
+export interface ClaudeCommand { id: string; ts: number; kind: 'task' | 'chat'; text: string; to?: string; toName?: string; from?: { id: string; name?: string }; status: 'queued' | 'running' | 'done' | 'error'; reply?: string }
+
+const RUNNER_HINT = 'node .claude/avo-office-hook.mjs listen';
+const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+/** Prompt dari runner office ("[Agent Office] Tugas dari X:\n<teks>\n…") → teks permintaannya saja. */
+const officePrompt = (p?: string) => {
+  const t = String(p ?? '');
+  if (!t.startsWith('[Agent Office]')) return t;
+  const [head, ...rest] = t.split('\n');
+  const body = rest.find((l) => l.trim()) ?? '';
+  return /^\[Agent Office\] Pesan/.test(head) ? `${head.replace(/^\[Agent Office\] Pesan dari (.+?) untuk (.+?)(?: \(.*\))?:$/, '$1 → $2')}: ${body}` : body || head.replace('[Agent Office] ', '');
+};
 
 export interface HookEvent {
   hook: string;
@@ -85,7 +103,13 @@ export class PluginAdapter implements AgentDataAdapter {
   readonly kind = 'claude-code' as const;
   readonly label: string;
   readonly isSimulated = false;
+  /** submit/assign/chat menyala selama runner pemilik office online (dua arah); selain itu hanya menonton. */
   readonly can = { submit: false, assign: false, pause: false, chat: false, speed: false };
+  onRunner?: (r: RunnerStatus | null) => void;
+  private runnerTimer: ReturnType<typeof setInterval> | null = null;
+  /** chat yang menunggu jawaban Claude: id perintah → kursi (resolve hilang = jawaban datang terlambat) */
+  private waiting = new Map<string, { seat: AgentId; resolve?: (text: string) => void }>();
+  private reported = new Set<string>();
 
   private ctx!: AdapterContext;
   private es: EventSource | null = null;
@@ -110,7 +134,11 @@ export class PluginAdapter implements AgentDataAdapter {
     if (replay) { this.replay(replay); return; }
     if (this.transport) {
       this.transport.team().then((t) => { if (t.length) this.team(t); }).catch(() => {});
-      this.closeTransport = this.transport.open((evs) => evs.forEach((ev) => this.handle(ev)), (st) => this.onStatus?.(st));
+      this.closeTransport = this.transport.open((evs) => evs.forEach((ev) => this.handle(ev)), (st) => this.onStatus?.(st), (kind, data) => this.control(kind, data));
+      if (this.transport.runner) {
+        this.refreshRunner();
+        this.runnerTimer = setInterval(() => this.refreshRunner(), 30_000);
+      }
       return;
     }
     fetch('/team').then((r) => r.json()).then((j) => { if (Array.isArray(j.team)) this.team(j.team); }).catch(() => {});
@@ -142,6 +170,10 @@ export class PluginAdapter implements AgentDataAdapter {
   }
 
   disconnect() {
+    if (this.runnerTimer) clearInterval(this.runnerTimer);
+    this.runnerTimer = null;
+    for (const w of this.waiting.values()) w.resolve?.('');
+    this.waiting.clear();
     this.closeTransport?.();
     this.closeTransport = null;
     this.es?.close();
@@ -150,16 +182,85 @@ export class PluginAdapter implements AgentDataAdapter {
     this.timers = [];
   }
 
-  submitProject() {}
-  assignTask() {}
+  // ---------------------------------------------------------------- office → Claude Code (dua arah)
+  private refreshRunner() {
+    this.transport?.runner?.().then((r) => this.applyRunner(r)).catch(() => this.applyRunner(null));
+  }
+
+  private applyRunner(r: RunnerStatus | null) {
+    const ok = !!r?.online && (r.mine || r.allowTeam);
+    this.can.submit = this.can.assign = this.can.chat = ok;
+    this.onRunner?.(r);
+  }
+
+  private control(kind: 'command' | 'reply' | 'runner', data: unknown) {
+    if (kind === 'runner') { this.refreshRunner(); return; }
+    const c = data as ClaudeCommand;
+    if (!c?.id) return;
+    if (kind === 'command') {
+      if (c.kind === 'task' && c.status === 'queued') this.log('manager', 'task', `Task for Claude Code${c.from?.name ? ` from ${c.from.name}` : ''}: ${short(c.text, 80)}`);
+      return;
+    }
+    // reply
+    const text = short(c.reply || (c.status === 'error' ? 'Claude Code could not finish this.' : 'Done.'), 1500);
+    const w = this.waiting.get(c.id);
+    if (w) {
+      this.waiting.delete(c.id);
+      if (w.resolve) w.resolve(text);
+      else this.ctx.emit({ type: 'message', message: { id: uid('msg'), ts: now(), from: w.seat, to: 'user', text, channel: 'direct' } });
+      return;
+    }
+    if (c.kind === 'task' && !this.reported.has(c.id)) {
+      this.reported.add(c.id);
+      this.ctx.emit({ type: 'message', message: { id: uid('msg'), ts: now(), from: 'manager', to: 'user', text, channel: 'team' } });
+      this.log('manager', c.status === 'error' ? 'error' : 'result', `${c.status === 'error' ? 'Failed' : 'Done'}: ${short(c.text, 60)}`);
+    }
+  }
+
+  private send(cmd: { kind: 'task' | 'chat'; text: string; to?: string; toName?: string }) {
+    if (!this.transport?.send) return Promise.reject(new Error('This office is read-only'));
+    return this.transport.send(cmd);
+  }
+
+  submitProject(title: string) {
+    if (!this.can.submit) return;
+    this.send({ kind: 'task', text: title }).catch((e) => this.log('manager', 'error', `Couldn't send to Claude Code: ${errText(e)}`));
+  }
+
+  assignTask(agent: AgentId, title: string) {
+    if (!this.can.assign) return;
+    const role = agent === 'manager' ? null : roleOf(agent);
+    this.send({ kind: 'task', text: title, to: role ?? undefined, toName: this.ctx.getState().agents[agent].name })
+      .catch((e) => this.log(agent, 'error', `Couldn't send to Claude Code: ${errText(e)}`));
+  }
+
   pauseAgent() {}
   resumeAgent() {}
+
   async ask(id: AgentId, text: string, lang: Lang) {
     const a = this.ctx.getState().agents[id];
+    // runner online: pesan sungguhan ke Claude Code, dijawab sebagai karyawan ini
+    if (this.can.chat && this.transport?.send) {
+      try {
+        const role = id === 'manager' ? null : roleOf(id);
+        const c = await this.send({ kind: 'chat', text, to: role ?? undefined, toName: a.name });
+        return await new Promise<string>((resolve) => {
+          const entry: { seat: AgentId; resolve?: (t: string) => void } = { seat: id, resolve };
+          this.waiting.set(c.id, entry);
+          setTimeout(() => {
+            if (!entry.resolve) return;
+            entry.resolve = undefined; // jawaban yang datang nanti masuk sebagai pesan baru
+            resolve(/\b(dan|yang|tolong|apa|saya|kamu|sudah)\b/i.test(text) ? 'Masih saya kerjakan — jawabannya muncul di sini begitu selesai.' : "Still on it — my answer will show up here as soon as I'm done.");
+          }, 4 * 60_000);
+        });
+      } catch (e) {
+        return `Couldn't reach Claude Code: ${errText(e)}`;
+      }
+    }
     const t = a.currentTaskId ? this.ctx.getState().tasks[a.currentTaskId] : null;
-    if (/\b(apa|sedang|kamu|sudah|masalah|berikutnya|lagi)\b/i.test(text)) return t ? `Saya ${a.name}. Sedang mengerjakan "${t.title}". Perintahnya datang dari Claude Code di terminal Anda.` : `Saya ${a.name}. Sedang kosong: Claude Code di terminal yang membagi pekerjaan.`;
+    if (/\b(apa|sedang|kamu|sudah|masalah|berikutnya|lagi)\b/i.test(text)) return (t ? `Saya ${a.name}. Sedang mengerjakan "${t.title}".` : `Saya ${a.name}. Sedang kosong.`) + ` Untuk mengobrol sungguhan, nyalakan runner di komputer Anda: ${RUNNER_HINT}`;
     if (lang === 'uz') return t ? `Men ${a.name}. Hozir "${t.title}" ustida ishlayapman. Buyruqlar terminaldagi Claude Code’dan keladi.` : `Men ${a.name}. Hozir bo‘shman: vazifani terminaldagi Claude Code beradi.`;
-    return t ? `I'm ${a.name}. I'm working on "${t.title}" right now. My orders come from Claude Code in your terminal.` : `I'm ${a.name}. I'm free right now: Claude Code in your terminal hands out the work.`;
+    return (t ? `I'm ${a.name}. I'm working on "${t.title}" right now.` : `I'm ${a.name}. I'm free right now.`) + ` To really talk to me, start the runner on your computer: ${RUNNER_HINT}`;
   }
 
   private lastTeam = '';
@@ -234,7 +335,7 @@ export class PluginAdapter implements AgentDataAdapter {
       case 'UserPromptSubmit': {
         // a background sub-agent reporting back arrives as a prompt; it is not a new request
         if (/^\s*<(task-notification|agent-message)\b/.test(ev.prompt ?? '')) { this.log('manager', 'status', 'A sub-agent reported back'); return; }
-        const title = short(ev.prompt, 90) || 'New request';
+        const title = short(officePrompt(ev.prompt), 90) || 'New request';
         this.project = { id: uid('prj'), title, status: 'running', progress: 0, createdAt: now(), taskIds: [] };
         emit({ type: 'project.upsert', project: { ...this.project } });
         emit({ type: 'message', message: { id: uid('msg'), ts: now(), from: 'user', to: 'manager', text: title, channel: 'team' } });

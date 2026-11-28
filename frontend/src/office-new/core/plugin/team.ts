@@ -86,6 +86,9 @@ function dress(seat: AgentId, roleId: string, label?: string) {
   SEAT_MODEL[seat] = MODELS[g].find((m) => !used.has(m)) ?? MODELS[g][0];
 }
 
+/** seat → sub-agent Claude Code yang duduk di sana (null = manajer / kosong) */
+export const roleOf = (seat: AgentId) => seatRole.get(seat) ?? null;
+
 export const isVacant = (seat: AgentId) => seat !== 'manager' && !seatRole.has(seat);
 
 /** Apply the team from the plugin server. Returns every seat (check isVacant). */

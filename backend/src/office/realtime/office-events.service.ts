@@ -11,7 +11,7 @@ export type OfficeEventType =
   | 'presence.update' | 'presence.voice-signal'
   | 'approval.requested' | 'approval.decided' | 'integration.event'
   | 'brain.entry' | 'brain.deleted'
-  | 'claude.event';
+  | 'claude.event' | 'claude.command' | 'claude.reply' | 'claude.runner';
 
 interface OfficeEvent { companyId: string; type: OfficeEventType; data: unknown }
 

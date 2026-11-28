@@ -4,7 +4,7 @@ import type { Agent, AgentId, Lang, LogEntry, Message, OfficeEvent, Project, Tas
 import { uid } from '../core/types';
 import { initialAgents } from '../core/agents';
 import { SimulationAdapter } from '../core/simulation/SimulationAdapter';
-import { PluginAdapter, replayUrl } from '../core/plugin/PluginAdapter';
+import { PluginAdapter, replayUrl, type RunnerStatus } from '../core/plugin/PluginAdapter';
 import { BackendAdapter, type AvoEmployee } from '../core/avo/BackendAdapter';
 import { claudeTransport } from '../core/avo/claudeTransport';
 import { getToken, list, one } from '../core/avo/api';
@@ -28,6 +28,8 @@ interface OfficeState extends OfficeSnapshot {
   adapter: AgentDataAdapter;
   source: SourceKind;
   liveStatus: 'connecting' | 'open' | 'error' | null;
+  /** Claude Code runner di komputer pemilik (dua arah): null = belum diketahui / bukan sumber Claude Code */
+  runner: RunnerStatus | null;
   speed: number;
   running: boolean;
 
@@ -121,6 +123,7 @@ export const useOffice = create<OfficeState>((set, get) => {
     }
     const live = new PluginAdapter(IN_PLUGIN ? undefined : claudeTransport);
     live.onStatus = (st) => set({ liveStatus: st });
+    live.onRunner = (r) => set({ runner: r });
     return live;
   };
 
@@ -138,6 +141,7 @@ export const useOffice = create<OfficeState>((set, get) => {
     adapter,
     source: start,
     liveStatus: start === 'demo' ? null : 'connecting',
+    runner: null,
     roster: [],
     approvals: [],
     officeName: null,
@@ -188,7 +192,7 @@ export const useOffice = create<OfficeState>((set, get) => {
       if (kind === s.source) return;
       s.adapter.disconnect();
       const next = makeAdapter(kind);
-      set({ adapter: next, source: kind, liveStatus: kind === 'demo' ? null : 'connecting', chatWith: null, approvals: [], roster: [] });
+      set({ adapter: next, source: kind, liveStatus: kind === 'demo' ? null : 'connecting', runner: null, chatWith: null, approvals: [], roster: [] });
       next.connect(ctx);
       next.setSpeed?.(s.speed);
     },

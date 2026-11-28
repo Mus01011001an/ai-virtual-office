@@ -287,3 +287,12 @@ tekstur & cahaya Poly Haven, karakter tidak tembus barang, efek suara tepat mome
    karpet/kayu/ubin/luar sesuai lantai), ketikan keyboard, kursi diduduki, denting cangkir saat minum, pintu buka/tutup,
    bunyi tugas selesai & pesan tim. Volume menurun dengan jarak ke kamera (senyap > 14 m), kiri/kanan sesuai arah
    pandang. ⚙ → *Sound effects* (disimpan per perangkat, aktif setelah klik/ketik pertama).
+
+## 18. Dua arah: office → Claude Code (2026-11-28)
+
+Runner `node .claude/avo-office-hook.mjs listen` di komputer pemilik mengambil tugas/chat dari office (long-poll) dan
+menjalankan `claude -p` di folder project; balasan kembali lewat SSE `claude.reply`. Backend:
+`backend/src/office/claude-code/*` (antrean memori, status runner, izin pemilik/`--team`); frontend:
+`core/avo/claudeTransport.ts` (`runner()`, `send()`), `PluginAdapter` (`can.submit/assign/chat` mengikuti runner,
+`ask()` menunggu jawaban), `ui/Dashboard.tsx` (`RunnerLine`), `ui/ClaudeHookHelp.tsx` (langkah 4). Detail:
+`docs/ai-office-claude-code.md` §Dua arah.

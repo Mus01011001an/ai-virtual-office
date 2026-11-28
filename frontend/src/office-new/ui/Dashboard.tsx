@@ -6,26 +6,48 @@ import { AgentBadge, Btn, Progress, Section, StatusPill, clock } from './common'
 
 const EXAMPLES = ['Create a modern e-commerce website.', 'Build an admin dashboard with charts', 'Landing page for a coffee brand'];
 
+const LIVE_EXAMPLES = ['Fix the failing tests', 'Add a dark mode toggle to the settings page', 'Explain how login works in this project'];
+
+/** Satu baris status runner Claude Code (dua arah): siapa yang mengerjakan tugas dari office. */
+function RunnerLine() {
+  const r = useOffice((s) => s.runner);
+  if (!r) return null;
+  return (
+    <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-muted">
+      <span className={`h-1.5 w-1.5 rounded-full ${r.online ? (r.busy ? 'animate-pulse bg-amber-300' : 'bg-emerald-400') : 'bg-white/25'}`} />
+      {r.online
+        ? <span>Claude on {r.host ?? 'your computer'} · {r.busy ? 'working' : 'ready'}{r.queued ? ` · ${r.queued} queued` : ''}</span>
+        : <span>Claude is offline — run <code className="text-ink/80">node .claude/avo-office-hook.mjs listen</code> in your project</span>}
+    </div>
+  );
+}
+
 export function TaskInput() {
   const [text, setText] = useState('');
   const submit = useOffice((s) => s.submitProject);
   const project = useOffice(selectProject);
   const can = useOffice((s) => s.adapter.can.submit);
-  const busy = !!project && project.status !== 'completed';
-  const go = () => { if (text.trim() && !busy) { submit(text); setText(''); } };
+  const live = useOffice((s) => !s.adapter.isSimulated);
+  const runner = useOffice((s) => s.runner);
+  // demo: satu proyek sekaligus; Claude Code: tugas mengantre di runner
+  const busy = !live && !!project && project.status !== 'completed';
+  const go = () => { if (text.trim() && !busy && can) { submit(text); setText(''); } };
+  const placeholder = can ? (live ? 'Describe the task for Claude…' : 'e.g. Create a modern e-commerce website.')
+    : runner?.online ? 'Only the owner of this Claude Code can give it tasks' : 'Start Claude on your computer to send tasks from here';
   return (
     <Section title="New task for the team">
       <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} disabled={!can}
         onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); go(); } }}
-        placeholder={can ? 'e.g. Create a modern e-commerce website.' : 'Live mode: give tasks to Claude Code in your terminal'}
+        placeholder={placeholder}
         className="w-full resize-none rounded-lg border border-line bg-black/30 px-3 py-2 text-[13px] outline-none placeholder:text-muted/70 focus:border-accent/60" />
       <div className="mt-2 flex items-center gap-2">
         <Btn variant="primary" onClick={go} disabled={!text.trim() || busy || !can} title={busy ? 'A project is already running' : ''}>▶ Start</Btn>
         {busy && <span className="text-[11px] text-muted">Project in progress…</span>}
       </div>
+      {live && <RunnerLine />}
       {can && !busy && (
         <div className="mt-2 flex flex-wrap gap-1">
-          {EXAMPLES.map((e) => (
+          {(live ? LIVE_EXAMPLES : EXAMPLES).map((e) => (
             <button key={e} onClick={() => setText(e)} className="rounded-md bg-white/5 px-2 py-1 text-[11px] text-muted hover:bg-white/10 hover:text-ink">{e}</button>
           ))}
         </div>
