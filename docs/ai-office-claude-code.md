@@ -47,6 +47,21 @@ mengambil ulang `GET runner`). Office: chat menunggu jawaban hingga 4 menit (lal
 sebagai pesan baru); hasil tugas masuk **Team channel** dari manajer + log *Done/Failed*. Prompt runner diawali
 `[Agent Office]`; office menampilkan teks permintaannya saja.
 
+### Runner sebagai layanan macOS (selalu menyala)
+
+`~/Library/LaunchAgents/com.musyan.agent-office-runner.plist` (dipasang 2026-11-28 di Mac mini untuk folder
+`ai-virtual-office`, office Testing): `node <project>/.claude/avo-office-hook.mjs listen`, `WorkingDirectory` = folder
+project, `PATH` berisi folder `node`/`claude` (nvm), `RunAtLoad` + `KeepAlive`, log `~/Library/Logs/agent-office-runner.log`.
+Nyala saat pengguna login; `claude` memakai login di Keychain.
+
+```bash
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.musyan.agent-office-runner.plist   # nyalakan
+launchctl bootout gui/$(id -u)/com.musyan.agent-office-runner                                  # matikan
+tail -f ~/Library/Logs/agent-office-runner.log                                                 # lihat aktivitas
+```
+
+Token kedaluwarsa (log: "Ditolak office"): jalankan ulang perintah install dari Office Baru di folder project.
+
 Catatan: antrean di memori (restart backend = antrean kosong, runner menyambung lagi sendiri). Claude bisa mengedit
 file & menjalankan perintah yang diizinkan di folder itu — jalankan runner hanya di folder project yang memang boleh
 diubah.
