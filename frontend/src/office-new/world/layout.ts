@@ -45,7 +45,7 @@ export const ROOMS: Room[] = [
   { id: 'server', name: 'Server room', minX: 5, maxX: 10, minZ: -15, maxZ: -5, floor: 'B:Floor_Panel_01', palette: '02', walls: '02', style: 'blank' },
   { id: 'game', name: 'Game room', minX: 10, maxX: 20, minZ: -15, maxZ: -5, floor: 'B:Floor_Wood_01', palette: '01', walls: '01', style: 'brick' },
   { id: 'security', name: 'Cyber Security', minX: 20, maxX: 30, minZ: -15, maxZ: -5, floor: 'B:Floor_Carpet_01', palette: '04', walls: '04', style: 'blank' },
-  { id: 'corridor', name: 'Corridor', minX: -20, maxX: 30, minZ: -5, maxZ: -2.5, floor: 'B:Floor_Wood_01', palette: '04', walls: '01', style: 'baseboard' },
+  { id: 'corridor', name: 'Corridor', minX: -20, maxX: 30, minZ: -5, maxZ: -2.5, floor: 'B:Floor_Wood_01', palette: '04', walls: '03', style: 'baseboard' },
   { id: 'kitchen', name: 'Kitchen', minX: -20, maxX: -10, minZ: -2.5, maxZ: 5, floor: 'B:Floor_Tiles_01', palette: '02', walls: '01', style: 'trim' },
   { id: 'reception', name: 'Reception', minX: -20, maxX: -10, minZ: 5, maxZ: 15, floor: 'B:Floor_Stone_01', palette: '03', walls: '02', style: 'trim' },
   { id: 'wc-women', name: 'Restroom', minX: -2.5, maxX: 0, minZ: 10, maxZ: 15, floor: 'B:Floor_Tiles_01', palette: '01', walls: '02', style: 'blank' },

@@ -45,11 +45,8 @@ const KITCHEN: Item[] = [
   // mug shelf by the fridge
   ['Shelf_Wall_02', -18.75, 1.5, 4.98, P], ['Cup_01', -19.3, 1.5, 4.76], ['Cup_02', -18.9, 1.5, 4.76], ['Cup_03', -18.5, 1.5, 4.76],
   ['Dishes_03', -19.4, 1.83, 4.74], ['Dishes_04', -18.9, 1.83, 4.74], ['Milk_01', -18.3, 2.16, 4.74], ['Plant_11', -19.3, 2.16, 4.74],
-  // island
-  ['ChoppingBoard_02', k.x + 0.05, 0.95, k.z + 0.65], ['Sandwich_02', k.x + 0.05, 0.98, k.z + 0.65], ['Dishes_01', k.x - 0.55, 0.95, k.z - 0.75],
-  ['Toast_01', k.x - 0.55, 0.98, k.z - 0.75], ['Toast_02', k.x - 0.5, 0.99, k.z - 0.7, 0.6], ['Dishes_02', k.x + 0.2, 0.95, k.z - 0.8],
-  ['Toast_03', k.x + 0.2, 0.98, k.z - 0.8], ['Dishes_03', k.x - 0.7, 0.95, k.z + 0.75], ['Dishes_04', k.x + 0.75, 0.95, k.z + 0.85],
-  ['Napkins_01', k.x + 0.85, 0.95, k.z - 0.75], ['Lunchbox_Plastic_01', k.x - 0.85, 0.95, k.z + 0.05, 0.4], ['Pot_01', k.x + 0.1, 0.95, k.z + 0.05, 0, 0.7],
+  // island: rapi (dulu piring, roti, serbet, kotak bekal, panci = kotak abu-abu kecil), hanya tumpukan piring
+  ['Dishes_01', k.x - 0.55, 0.95, k.z - 0.6],
   ['ChoppingBoard_01', k.x - 0.15, 0.95, k.z - 0.15, 0.3, 0.6], ['Milk_Claimed_01', k.x + 0.85, 0.95, k.z + 0.3],
   // walls
   ['Blackboard_01', -10.03, 1.7, -0.9, -H], ['Darkboard_01', -10.03, 1.6, 3.4, -H], ['AirVent_Wall_01', -14.0, 2.6, 4.98, P],

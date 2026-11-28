@@ -456,3 +456,19 @@ tidak terpengaruh (semua lampu statis).
 
 **Atap dihapus** — `scene/Roof.tsx` dibuang (dulu tampil di Walk in); pandangan atas melihat isi gedung. `ShadowRoof`
 (tak terlihat, hanya menahan sinar matahari) tetap ada sehingga cahaya dalam ruangan tidak berubah.
+
+## 23. Redup & nyaman seperti video, kursi cangkang (2026-11-28)
+
+Diukur dari storyboard video referensi (rata-rata kecerahan frame dalam ruangan 40–55/255, koridor 20–25); office kita
+dulu ±90. Perubahan: `INSIDE` ambient 0.16 / hemisphere 0.32 (`scene/inside.ts`), HDRI di dalam 0.38 siang / 0.28 malam,
+bloom 0.28, brightness −0.05, vignette 0.72 (`OfficeScene.tsx`), lampu dapur 15; dinding `01` `#ad9881`, `02` `#8f877b`,
+plafon `#5f5446` / ubin `#6f675c`, kayu lounge `#c29766` (`fallback/kit.ts`); koridor berdinding merah marun (`layout.ts`).
+Hasil malam: ruang kerja 45, lobi 51, lounge 44, ruang rapat 48.
+
+Bug karpet: panel tengah krem (`visible = false`) ikut tergabung di semua karpet → kini hanya `Rug_01`, warna lebih gelap;
+`Rug_02` merah tua seperti runner koridor video. Tirai `#b3a58e`. Meja dapur dirapikan (kotak abu-abu kecil dibuang;
+piring & mangkuk buah punya bentuk).
+
+Kursi: model kotak `chair_meeting` dihapus → `chair_shell` (Blender `furniture.py`: cangkang satu bagian melengkung,
+kaki kayu miring + kawat silang, 2,1k segitiga) untuk `Chair_03/04/07/09/11` (dapur, studio, teras, ruang game, cetak);
+warna cangkang di `kit.ts` `SHELL`. `build.py` argumen ke-3 = render pratinjau model tertentu.

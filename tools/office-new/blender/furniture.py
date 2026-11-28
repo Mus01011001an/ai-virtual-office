@@ -3,7 +3,7 @@
 # Dibangun lewat build.py (lihat sana untuk perintahnya).
 import math
 
-from lib import box, cyl, model, bpy  # noqa: F401  (bpy dipakai table_conference)
+from lib import box, cyl, model, rod, surface, bpy  # noqa: F401  (bpy dipakai table_conference)
 
 
 # ------------------------------------------------------------------ dasar kursi beroda (bintang 5)
@@ -62,18 +62,36 @@ def chair_exec():
     return model('chair_exec', p)
 
 
-# ------------------------------------------------------------------ kursi rapat berlapis (lainnya)
-def chair_meeting():
-    p = []
+# ------------------------------------------------------------------ kursi cangkang (dapur, studio, teras, ruang game)
+def chair_shell():
+    """Kursi cangkang cetak satu bagian (dudukan + sandaran melengkung membungkus punggung), kaki kayu miring + kawat."""
+    prof = [(-0.215, 0.425), (-0.195, 0.442), (-0.09, 0.452), (0.04, 0.448), (0.14, 0.456), (0.198, 0.495),
+            (0.226, 0.57), (0.244, 0.665), (0.258, 0.755), (0.266, 0.825)]
+    halfw = [0.222, 0.232, 0.236, 0.234, 0.23, 0.226, 0.224, 0.23, 0.238, 0.232]
+    nv = 11
+    rows = []
+    for i, (y, z) in enumerate(prof):
+        back = max(0.0, (i - 4) / 5)
+        seat = 1 - back
+        row = []
+        for j in range(nv):
+            x = -1 + 2 * j / (nv - 1)
+            row.append((x * halfw[i], y - back * 0.08 * x * x, z + seat * 0.04 * x ** 4 + (0.01 if i == 0 else 0) * (1 - x * x)))
+        rows.append(row)
+    p = [surface('shell', rows, 'Shell', 0.011, 1)]
+    p.append(box((0.2, 0.18, 0.02), (0, 0.0, 0.41), 'Metal', 0.004))
+    feet = []
     for sx in (-1, 1):
         for sy in (-1, 1):
-            p.append(cyl(0.016, 0.44, (sx * 0.2, sy * 0.19, 0.21), 'Chrome', 12, rot=(sy * 0.06, -sx * 0.06, 0), r2=0.011))
-    p.append(box((0.44, 0.42, 0.03), (0, 0, 0.415), 'Metal', 0.008))
-    p.append(box((0.48, 0.47, 0.08), (0, -0.01, 0.465), 'Leather', 0.032, 4))
-    for s in (-1, 1):
-        p.append(box((0.02, 0.03, 0.30), (s * 0.17, 0.235, 0.56), 'Chrome', 0.005, rot=(0.14, 0, 0)))
-    p.append(box((0.46, 0.06, 0.40), (0, 0.255, 0.76), 'Leather', 0.03, 4, rot=(0.14, 0, 0)))
-    return model('chair_meeting', p)
+            top = (sx * 0.1, sy * 0.09, 0.405)
+            foot = (sx * 0.215, sy * 0.21, 0.0)
+            p.append(rod(top, foot, 0.016, 'Wood', 12, r2=0.012))
+            feet.append((top, foot))
+    # kawat penyangga (silang depan-belakang & kiri-kanan) di sepertiga bawah kaki
+    mid = [tuple(a + (b - a) * 0.62 for a, b in zip(t, f)) for t, f in feet]
+    for a, b in ((0, 3), (1, 2), (0, 1), (2, 3)):
+        p.append(rod(mid[a], mid[b], 0.004, 'Metal', 6))
+    return model('chair_shell', p)
 
 
 # ------------------------------------------------------------------ meja kerja (rangka besi, panel modesti)
@@ -156,7 +174,7 @@ def table_coffee(w=1.1, d=0.6):
 def build():
     chair_office()
     chair_exec()
-    chair_meeting()
+    chair_shell()
     desk(1.5, 0.75, 'desk_150x75')
     desk(1.6, 0.8, 'desk_160x80')
     desk(1.8, 0.75, 'desk_180x75')

@@ -28,7 +28,7 @@ import { sfx } from './sfx';
 // Few, wide lights: every point light costs something on every pixel.
 const ROOM_LIGHTS: [number, number, number, number][] = [
   [-15, -10, 22, 12], [-6.2, -10, 18, 10], [2.5, -10, 22, 13], [15, -10, 20, 12],
-  [-15, 1.2, 20, 11], [-15, 10, 20, 11], [-4, 5, 28, 15],
+  [-15, 1.2, 15, 11], [-15, 10, 20, 11], [-4, 5, 28, 15],
   [7.5, 6, 26, 14], [15, 6, 26, 14], [0, 12.5, 9, 6],
 ];
 
@@ -211,7 +211,7 @@ export function OfficeScene() {
         : <NearestLights inside={inside} />}
 
       {/* cahaya pantul asli: HDRI interior Poly Haven "lebombo" (CC0) — pantulan & isian lembut di semua bahan */}
-      <Suspense fallback={null}><Environment files="/assets/hdri/lebombo_1k.hdr" environmentIntensity={inside ? (day ? 0.7 : 0.55) : sky.env} /></Suspense>
+      <Suspense fallback={null}><Environment files="/assets/hdri/lebombo_1k.hdr" environmentIntensity={inside ? (day ? 0.38 : 0.28) : sky.env} /></Suspense>
 
       <Office />
       <Suspense fallback={null}>
@@ -230,12 +230,12 @@ export function OfficeScene() {
       {/* tanpa depth of field: semua tajam (blur lensa membuat gambar kabur & terasa seperti miniatur/mainan) */}
       <EffectComposer multisampling={Q.msaa}>
         {/* AO: N8AO crash di three r187, SSAO berbintik → diganti bayangan kontak (fallback/kit.ts, CharacterShadows) */}
-        {Q.bloom ? <Bloom intensity={0.35} luminanceThreshold={0.82} luminanceSmoothing={0.2} mipmapBlur /> : <></>}
+        {Q.bloom ? <Bloom intensity={0.28} luminanceThreshold={0.85} luminanceSmoothing={0.2} mipmapBlur /> : <></>}
         {/* inside: a muted, contrasty grade (the reference video), outside the brighter overview look */}
-        <HueSaturation saturation={inside ? -0.14 : -0.04} />
-        <BrightnessContrast brightness={inside ? -0.02 : 0.02} contrast={inside ? 0.14 : 0.08} />
+        <HueSaturation saturation={inside ? -0.1 : -0.04} />
+        <BrightnessContrast brightness={inside ? -0.05 : 0.02} contrast={inside ? 0.12 : 0.08} />
         <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
-        <Vignette offset={0.28} darkness={inside ? 0.62 : 0.5} />
+        <Vignette offset={0.26} darkness={inside ? 0.72 : 0.5} />
       </EffectComposer>
     </Canvas>
   );

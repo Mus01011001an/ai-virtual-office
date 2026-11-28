@@ -20,7 +20,8 @@ export const insideLight = (mode: string, shot: string | null) => !DARK_CORNERS 
  */
 // 2026-11-28: dimmer fill + steeper falloff → pools of warm light and darker corners, like the reference video
 // (it looked flat and toy-like when every wall was lit the same).
-export const INSIDE = { decay: 1.35, reach: 1.4, ambient: 0.28, hemisphere: 0.5, ao: { radius: 0.5, intensity: 1.0 } };
+// 2026-11-28 (2): lebih redup lagi — video referensi rata-rata 40–55/255 di dalam ruangan, kita dulu ±90.
+export const INSIDE = { decay: 1.35, reach: 1.4, ambient: 0.16, hemisphere: 0.32, ao: { radius: 0.5, intensity: 1.0 } };
 /** Cyber Security keeps its moodier falloff, a little stronger so its cool glow still wins over the warmer fill. */
 export const SOC_INSIDE = { decay: 1.3, reach: 1.4, boost: 1.15 };
 /** A lamp's intensity with falloff `decay` that gives the same light `h` metres below it as `intensity` with decay 2. */

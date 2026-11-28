@@ -13,7 +13,7 @@ COL = {
     'Plastic': (0.08, 0.08, 0.09), 'Keys': (0.16, 0.16, 0.18), 'Stone': (0.82, 0.79, 0.74), 'Brass': (0.70, 0.53, 0.28),
     'Glow': (1.0, 0.85, 0.6), 'GlowBlue': (0.3, 0.5, 1.0), 'Screen': (0.1, 0.15, 0.25), 'Glass': (0.75, 0.85, 0.9),
     'Leaf': (0.16, 0.32, 0.15), 'Leaf2': (0.36, 0.45, 0.18), 'Pot': (0.78, 0.76, 0.72), 'Soil': (0.16, 0.11, 0.08),
-    'Trunk': (0.35, 0.25, 0.17), 'Steel': (0.70, 0.71, 0.72),
+    'Trunk': (0.35, 0.25, 0.17), 'Steel': (0.70, 0.71, 0.72), 'Shell': (0.88, 0.86, 0.82),
 }
 TWO_SIDED = {'Leaf', 'Leaf2'}
 
@@ -175,6 +175,47 @@ def leaf(length, width, mat, loc, yaw, pitch, roll=0.0, bend=0.25, fold=0.18, na
     finish(o, mat, 0)
     o.rotation_euler = (pitch, roll, yaw)  # XYZ: angguk, miring, lalu putar di sumbu tegak
     o.location = loc
+    return o
+
+
+def rod(p0, p1, r, mat, verts=10, r2=None):
+    """Silinder dari titik p0 ke p1 (kaki miring, kawat penyangga)."""
+    a, b = mathutils.Vector(p0), mathutils.Vector(p1)
+    d = b - a
+    o = cyl(r, d.length, (0, 0, 0), mat, verts, r2=r2)
+    o.rotation_mode = 'QUATERNION'
+    o.rotation_quaternion = d.to_track_quat('Z', 'Y')
+    o.location = (a + b) / 2
+    return o
+
+
+def surface(name, rows, mat, thickness=0.012, subd=1):
+    """Permukaan dari grid titik (baris × kolom) → tebal (solidify) + halus (subdivision) → diterapkan."""
+    me = bpy.data.meshes.new(name)
+    bm = bmesh.new()
+    grid = [[bm.verts.new(p) for p in row] for row in rows]
+    for i in range(len(grid) - 1):
+        for j in range(len(grid[i]) - 1):
+            bm.faces.new((grid[i][j], grid[i][j + 1], grid[i + 1][j + 1], grid[i + 1][j]))
+    bm.normal_update()
+    bm.to_mesh(me)
+    bm.free()
+    o = bpy.data.objects.new(name, me)
+    bpy.context.collection.objects.link(o)
+    o.data.materials.append(material(mat))
+    sol = o.modifiers.new('solid', 'SOLIDIFY')
+    sol.thickness = thickness
+    sol.offset = -1
+    sub = o.modifiers.new('sub', 'SUBSURF')
+    sub.levels = subd
+    sub.render_levels = subd
+    o.data.polygons.foreach_set('use_smooth', [True] * len(o.data.polygons))
+    dg = bpy.context.evaluated_depsgraph_get()
+    me2 = bpy.data.meshes.new_from_object(o.evaluated_get(dg), preserve_all_data_layers=True, depsgraph=dg)
+    old = o.data
+    o.modifiers.clear()
+    o.data = me2
+    bpy.data.meshes.remove(old)
     return o
 
 
